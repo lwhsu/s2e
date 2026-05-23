@@ -63,7 +63,6 @@ if(WITH_TARGET MATCHES "s2e")
                      gomp
                      ${PROTOBUF_LIBRARIES})
     set(LIBS ${LIBS} boost_serialization
-                     boost_system
                      boost_regex)
 endif()
 
