@@ -44,4 +44,4 @@ fi
 chown -R vagrant:vagrant /mnt/disk/
 usermod -a -G docker vagrant
 
-su -c "source /vagrant/provision-user.sh" vagrant
+su -c "/bin/bash -c 'source /vagrant/provision-user.sh'" vagrant
