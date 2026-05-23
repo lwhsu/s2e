@@ -26,10 +26,10 @@
 #define _S2E_EXTERNAL_DISPATCHER_H
 
 #include <inttypes.h>
-#include <klee/ExternalDispatcher.h>
-#include <llvm/IR/Function.h>
 #include <setjmp.h>
 #include <signal.h>
+
+#include <klee/ExternalDispatcher.h>
 
 namespace s2e {
 
