@@ -95,7 +95,7 @@ public:
                  bool /* success */>
         onLocalPut;
 
-    KeyValueStore(S2E *s2e) : Plugin(s2e), m_socket(m_io_service) {
+    KeyValueStore(S2E *s2e) : Plugin(s2e), m_socket(m_io_context) {
     }
     virtual ~KeyValueStore();
 
@@ -117,7 +117,7 @@ public:
     virtual void handleOpcodeInvocation(S2EExecutionState *state, uint64_t guestDataPtr, uint64_t guestDataSize);
 
 private:
-    boost::asio::io_service m_io_service;
+    boost::asio::io_context m_io_context;
     boost::asio::ip::tcp::socket m_socket;
 
     std::string m_session_id;

@@ -37,10 +37,10 @@ private:
     std::string m_host;
     std::string m_port;
 
-    boost::asio::io_service m_io_service;
+    boost::asio::io_context m_io_context;
     boost::asio::ip::tcp::socket m_socket;
 
-    S2EQMPClient() : m_socket(m_io_service) {
+    S2EQMPClient() : m_socket(m_io_context) {
     }
 
 public:
@@ -50,7 +50,7 @@ public:
     bool ready() const;
 };
 
-S2EQMPClient::S2EQMPClient(const std::string &hostPort) : m_socket(m_io_service) {
+S2EQMPClient::S2EQMPClient(const std::string &hostPort) : m_socket(m_io_context) {
     // default port
     m_host = hostPort;
     m_port = "1234";
@@ -68,11 +68,9 @@ bool S2EQMPClient::connect() {
     std::cout << "QMP client connecting to " << m_host << ":" << m_port << "\n";
 
     try {
-        tcp::resolver resolver(m_io_service);
-        tcp::resolver::query query(m_host, m_port);
-        tcp::resolver::iterator iter = resolver.resolve(query);
-
-        m_socket.connect(*iter);
+        tcp::resolver resolver(m_io_context);
+        auto endpoints = resolver.resolve(m_host, m_port);
+        boost::asio::connect(m_socket, endpoints);
 
     } catch (std::exception &e) {
         std::cerr << "Exception while connecting to the QMP server: " << e.what() << "\n";

@@ -90,11 +90,9 @@ void KeyValueStore::connectNative() {
         std::stringstream sp;
         sp << m_port;
 
-        boost::asio::ip::tcp::resolver resolver(m_io_service);
-        boost::asio::ip::tcp::resolver::query query(m_server, sp.str());
-        boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query);
-
-        m_socket.connect(*iter);
+        boost::asio::ip::tcp::resolver resolver(m_io_context);
+        auto endpoints = resolver.resolve(m_server, sp.str());
+        boost::asio::connect(m_socket, endpoints);
 
         std::stringstream ss;
 
