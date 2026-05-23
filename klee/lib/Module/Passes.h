@@ -10,11 +10,27 @@
 #ifndef KLEE_PASSES_H
 #define KLEE_PASSES_H
 
+// LLVM 19 headers include <ciso646> which GCC 15 flags as deprecated in C++20.
+// Suppress that #warning directive only around these system headers.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-W#warnings"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcpp"
+#endif
+
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace llvm {
 class Function;

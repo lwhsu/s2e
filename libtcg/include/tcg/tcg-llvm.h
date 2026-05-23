@@ -49,6 +49,16 @@ void *tcg_llvm_gen_code(void *llvmTranslator, struct TCGContext *s, struct Trans
 
 // External interface for C++ code
 
+// LLVM 19 headers include <ciso646> which GCC 15 flags as deprecated in C++20.
+// Suppress that #warning directive only around these system headers.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-W#warnings"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcpp"
+#endif
+
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
@@ -62,6 +72,12 @@ void *tcg_llvm_gen_code(void *llvmTranslator, struct TCGContext *s, struct Trans
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/Threading.h>
 #include <llvm/Transforms/Scalar.h>
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 #include <llvm/Transforms/Scalar/GVN.h>
 
 class TCGLLVMTranslator {
