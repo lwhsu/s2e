@@ -236,9 +236,10 @@ stamps/libdwarf-make: stamps/libdwarf-configure
 
 RAPIDJSON_CONFIGURE_FLAGS = -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)                                 \
                             -DCMAKE_C_FLAGS="$(CFLAGS_ARCH) -fno-omit-frame-pointer -fPIC"       \
-                            -DCMAKE_C_COMPILER=$(SYSTEM_CLANG_CC)                                       \
-                            -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                                    \
-                            -DRAPIDJSON_BUILD_TESTS=OFF
+                            -DCMAKE_C_COMPILER=$(SYSTEM_CLANG_CC)                                \
+                            -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                             \
+                            -DRAPIDJSON_BUILD_TESTS=OFF \
+                            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 
 stamps/rapidjson-configure: $(RAPIDJSON_BUILD_DIR)
