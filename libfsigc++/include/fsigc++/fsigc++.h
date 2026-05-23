@@ -51,7 +51,30 @@ public:
     virtual void disconnect(void *functor) = 0;
 };
 
-class functor_refcnt;
+class functor_refcnt {
+private:
+    std::atomic<unsigned> m_refCount;
+
+protected:
+    functor_refcnt() : m_refCount(0) {
+    }
+
+public:
+    virtual ~functor_refcnt() {
+        assert(m_refCount == 0);
+    }
+
+    friend void intrusive_ptr_add_ref(functor_refcnt *ptr) {
+        ++ptr->m_refCount;
+    }
+
+    friend void intrusive_ptr_release(functor_refcnt *ptr) {
+        if (--ptr->m_refCount == 0) {
+            delete ptr;
+        }
+    }
+};
+
 typedef boost::intrusive_ptr<functor_refcnt> functor_refcnt_ptr;
 
 class connection {
@@ -73,38 +96,6 @@ public:
     }
     void disconnect();
 };
-
-//*************************************************
-//*************************************************
-//*************************************************
-
-class functor_refcnt {
-private:
-    std::atomic<unsigned> m_refCount;
-
-protected:
-    functor_refcnt() : m_refCount(0) {
-    }
-
-public:
-    virtual ~functor_refcnt() {
-        assert(m_refCount == 0);
-    }
-
-    template <typename T> friend void intrusive_ptr_add_ref(T *ptr);
-
-    template <typename T> friend void intrusive_ptr_release(T *ptr);
-};
-
-template <typename T> inline void intrusive_ptr_add_ref(T *ptr) {
-    ++ptr->m_refCount;
-}
-
-template <typename T> inline void intrusive_ptr_release(T *ptr) {
-    if (--ptr->m_refCount == 0) {
-        delete ptr;
-    }
-}
 
 template <typename RET, typename... PARAM_TYPES> class functor_base : public functor_refcnt {
 protected:
