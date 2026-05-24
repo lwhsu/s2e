@@ -13,7 +13,7 @@ You will find in the documentation various tutorials that go deeper into various
 
 .. note::
 
-    S2E builds and runs on Ubuntu 22.04, 24.04 and Debian 12/13 (64-bit).
+    S2E builds and runs on Ubuntu 24.04, 26.04 and Debian 12/13 (64-bit).
     Earlier versions may still work, but we do not support them anymore.
 
 

@@ -49,6 +49,16 @@ void *tcg_llvm_gen_code(void *llvmTranslator, struct TCGContext *s, struct Trans
 
 // External interface for C++ code
 
+// LLVM 19 headers include <ciso646> which GCC 15 flags as deprecated in C++20.
+// Suppress that #warning directive only around these system headers.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-W#warnings"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcpp"
+#endif
+
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
@@ -62,6 +72,12 @@ void *tcg_llvm_gen_code(void *llvmTranslator, struct TCGContext *s, struct Trans
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/Threading.h>
 #include <llvm/Transforms/Scalar.h>
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 #include <llvm/Transforms/Scalar/GVN.h>
 
 class TCGLLVMTranslator {
@@ -104,10 +120,7 @@ private:
     std::unordered_map<TCGLabel *, llvm::BasicBlock *> m_labels;
 
     llvm::FunctionType *m_tbType;
-    llvm::Type *m_cpuType;
     llvm::Value *m_cpuState;
-    // Represents CPU state pointer cast to an int
-    llvm::Instruction *m_cpuStateInt;
 
     // This instruction is a no-op in the entry block, we use it
     // in order to simplify instruction insertion.
@@ -116,7 +129,7 @@ private:
     llvm::Value *m_ccop;
     llvm::BasicBlock *m_abortBB;
 
-    static unsigned m_eip_last_gep_index;
+    static uint64_t m_eip_byte_offset;
 
     typedef llvm::DenseMap<std::pair<unsigned, unsigned>, llvm::Instruction *> GepMap;
     GepMap m_registers;
@@ -154,7 +167,7 @@ public:
         return llvm::IntegerType::get(getContext(), w);
     }
     llvm::Type *intPtrType(int w) {
-        return llvm::PointerType::get(intType(w), 0);
+        return llvm::PointerType::getUnqual(getContext());
     }
     llvm::Type *wordType() {
         return intType(TCG_TARGET_REG_BITS);
@@ -221,7 +234,6 @@ public:
     llvm::Function *generateCode(TCGContext *s, TranslationBlock *tb);
     void removeInterruptExit();
 
-    bool getCpuFieldGepIndexes(unsigned offset, unsigned sizeInBytes, llvm::SmallVector<llvm::Value *, 3> &gepIndexes);
     static bool GetStaticBranchTarget(const llvm::BasicBlock *bb, uint64_t *target);
 };
 

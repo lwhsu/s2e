@@ -21,9 +21,6 @@
 /// SOFTWARE.
 ///
 
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
-
 #include <s2e/S2EExecutor.h>
 #include <s2e/S2EExternalDispatcher.h>
 #include <s2e/Utils.h>
