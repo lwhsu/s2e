@@ -47,7 +47,15 @@ typedef enum _S2E_GUEST_HOOK_PLUGIN_COMMANDS {
     UNREGISTER_DIRECT_HOOK,
 
     REGISTER_CALL_SITE_HOOK,
-    UNREGISTER_CALL_SITE_HOOK
+    UNREGISTER_CALL_SITE_HOOK,
+
+    /// Call site hooks identified by the address of the hooked function
+    /// instead of a library/function name. Useful when the guest can
+    /// resolve the function itself (e.g., kernel modules linked by the
+    /// guest OS) and the host cannot parse the module's imports.
+    /// Uses the S2E_GUEST_HOOK_DIRECT structure.
+    REGISTER_CALL_SITE_HOOK_ADDRESS,
+    UNREGISTER_CALL_SITE_HOOK_ADDRESS
 } S2E_GUEST_HOOK_PLUGIN_COMMANDS;
 
 typedef struct S2E_GUEST_HOOK_DIRECT {

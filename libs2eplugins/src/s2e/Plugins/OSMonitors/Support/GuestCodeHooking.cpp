@@ -369,6 +369,35 @@ void GuestCodeHooking::handleOpcodeInvocation(S2EExecutionState *state, uint64_t
             }
         } break;
 
+        case REGISTER_CALL_SITE_HOOK_ADDRESS: {
+            HookLocation loc;
+            loc.pc = command.DirectHook.OriginalPc;
+            loc.pid = m_monitor->translatePid(command.DirectHook.Pid, loc.pc);
+
+            Hook hook;
+            hook.hook_return_64 = 0;
+            hook.target_pc = command.DirectHook.HookPc;
+
+            plgState->m_callSiteHooks[loc] = hook;
+
+            getInfoStream(state) << "Registered call site hook for calls to " << hexval(loc.pid) << ":"
+                                 << hexval(loc.pc) << " to " << hexval(hook.target_pc) << "\n";
+
+            se_tb_safe_flush();
+        } break;
+
+        case UNREGISTER_CALL_SITE_HOOK_ADDRESS: {
+            HookLocation loc;
+            loc.pc = command.DirectHook.OriginalPc;
+            loc.pid = m_monitor->translatePid(command.DirectHook.Pid, loc.pc);
+            plgState->m_callSiteHooks.erase(loc);
+
+            getInfoStream(state) << "Unregistered call site hook for calls to " << hexval(loc.pid) << ":"
+                                 << hexval(loc.pc) << "\n";
+
+            se_tb_safe_flush();
+        } break;
+
         case UNREGISTER_CALL_SITE_HOOK: {
             const auto &csh = command.CallSiteHook;
             S2E_GUEST_HOOK_LIBRARY_FCN_CPP cshcpp;

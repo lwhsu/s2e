@@ -6,7 +6,7 @@
 S2E_INCLUDE_DIR?=	${.CURDIR}/../../common/include
 
 KMOD=	s2e
-SRCS=	s2e_mod.c
+SRCS=	s2e_mod.c faultinj.c
 SRCS+=	bus_if.h device_if.h
 
 CFLAGS+=	-I${S2E_INCLUDE_DIR}
