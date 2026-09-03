@@ -504,7 +504,7 @@ void glue(glue(io_write_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
 
 end:
     // The symbolic hardware ranges are physical addresses
-    tcg_llvm_trace_mmio_access(naddr, val, DATA_SIZE, 1);
+    tcg_llvm_trace_mmio_access(physaddr, val, DATA_SIZE, 1);
     SE_SET_MEM_IO_VADDR(env, 0, 1);
 }
 
