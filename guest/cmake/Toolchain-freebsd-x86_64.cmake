@@ -1,7 +1,6 @@
 # S2E Selective Symbolic Execution Platform
 #
-# Copyright (c) 2017 Dependable Systems Laboratory, EPFL
-# Copyright (c) 2018 Cyberhaven
+# Copyright (c) 2026 Li-Wen Hsu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,10 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-add_executable(s2ecmd s2ecmd.cpp symfile.cpp s2eget.cpp s2eput.cpp common.cpp)
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  # FreeBSD has no separate libatomic, the compiler runtime provides the atomics
-  target_link_libraries(s2ecmd atomic)
-endif()
+# Native build of the guest tools on a FreeBSD host, for FreeBSD guests.
 
-install(TARGETS s2ecmd RUNTIME DESTINATION .)
+set(CMAKE_SYSTEM_NAME FreeBSD)
+
+set(BITS 64)
+
+# Do not force a compiler for FreeBSD targets

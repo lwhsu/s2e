@@ -63,12 +63,18 @@ add_subdirectory(common)
 # Only build for Linux
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   add_subdirectory(linux)
+endif()
+
+# The S2E BIOS is a bare-metal test harness that only needs nasm and a host toolchain
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+  # The BIOS makefile needs GNU make, which is not the system make on the BSDs
+  find_program(GNU_MAKE NAMES gmake make REQUIRED)
 
   set(S2EBIOS_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/s2ebios")
   set(S2EBIOS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/s2ebios")
   file(MAKE_DIRECTORY ${S2EBIOS_BUILD_DIR})
   add_custom_target(s2ebios ALL
-                    COMMAND make -f ${S2EBIOS_SOURCE_DIR}/Makefile BITS=${BITS}
+                    COMMAND ${GNU_MAKE} -f ${S2EBIOS_SOURCE_DIR}/Makefile BITS=${BITS}
                     WORKING_DIRECTORY ${S2EBIOS_BUILD_DIR})
   install(FILES ${S2EBIOS_BUILD_DIR}/s2e-bios.bin DESTINATION .)
 endif()
