@@ -244,8 +244,9 @@ static void handlerTraceMmioAccess(Executor *executor, ExecutionState *state, kl
 
     auto symbolicPhysAddress = args[0];
     if (!g_symbolicMemoryHook.hasHook()) {
-        // Avoid forced concretizations if symbolic hardware is not enabled
-        state->llvm.bindLocal(target, symbolicPhysAddress);
+        // Avoid forced concretizations if symbolic hardware is not enabled.
+        // The caller uses the return value as the value of the access.
+        state->llvm.bindLocal(target, args[1]);
         return;
     }
 
