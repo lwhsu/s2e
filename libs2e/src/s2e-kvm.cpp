@@ -288,7 +288,10 @@ void S2EKVM::init(void) {
     // emulated local APIC timer never counts. Linux guests silently fall back
     // to the HPET or PIT; FreeBSD guests panic with a divide fault while
     // calibrating the timer.
-    cpu_enable_ticks();
+    // S2E_NO_INITIAL_TICKS restores the previous behavior (for experiments).
+    if (!getenv("S2E_NO_INITIAL_TICKS")) {
+        cpu_enable_ticks();
+    }
 
     atexit(cleanup);
 }
