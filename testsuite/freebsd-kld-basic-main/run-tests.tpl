@@ -1,0 +1,1 @@
+../freebsd-kld-basic/run-tests.tpl
