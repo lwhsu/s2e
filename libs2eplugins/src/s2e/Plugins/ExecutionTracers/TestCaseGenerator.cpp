@@ -130,9 +130,14 @@ void TestCaseGenerator::enable() {
     if (tcOnSegfault) {
         WindowsCrashMonitor *windows = s2e()->getPlugin<WindowsCrashMonitor>();
         LinuxMonitor *linux = s2e()->getPlugin<LinuxMonitor>();
+        FreeBSDMonitor *freebsd = s2e()->getPlugin<FreeBSDMonitor>();
         if (linux) {
             m_linuxSegFaultConnection.disconnect();
             m_linuxSegFaultConnection = linux->onSegFault.connect(sigc::mem_fun(*this, &TestCaseGenerator::onSegFault));
+        } else if (freebsd) {
+            m_freebsdSegFaultConnection.disconnect();
+            m_freebsdSegFaultConnection =
+                freebsd->onSegFault.connect(sigc::mem_fun(*this, &TestCaseGenerator::onFreeBSDSegFault));
         } else if (windows) {
             m_windowsKernelCrashConnection.disconnect();
             m_windowsKernelCrashConnection.disconnect();
@@ -152,6 +157,7 @@ void TestCaseGenerator::disable() {
     m_stateForkConnection.disconnect();
     m_stateKillConnection.disconnect();
     m_linuxSegFaultConnection.disconnect();
+    m_freebsdSegFaultConnection.disconnect();
     m_windowsKernelCrashConnection.disconnect();
     m_windowsUserCrashConnection.disconnect();
 }
@@ -171,6 +177,13 @@ void TestCaseGenerator::onWindowsKernelCrash(S2EExecutionState *state, const vmi
 }
 
 void TestCaseGenerator::onSegFault(S2EExecutionState *state, uint64_t pid, const S2E_LINUXMON_COMMAND_SEG_FAULT &data) {
+    std::stringstream ss;
+    ss << "crash:" << hexval(pid) << ":" << hexval(data.pc);
+    generateTestCases(state, ss.str(), TC_FILE);
+}
+
+void TestCaseGenerator::onFreeBSDSegFault(S2EExecutionState *state, uint64_t pid,
+                                          const S2E_FREEBSDMON_COMMAND_SEGFAULT &data) {
     std::stringstream ss;
     ss << "crash:" << hexval(pid) << ":" << hexval(data.pc);
     generateTestCases(state, ss.str(), TC_FILE);
