@@ -43,6 +43,23 @@ S2E_DEFINE_PLUGIN(FreeBSDMonitor, "Monitor for FreeBSD guests (s2e.ko and s2e.so
 
 namespace {
 
+///
+/// The thread that was running the last time the monitor looked, per state.
+/// Used to emit onProcessOrThreadSwitch without a context switch hook.
+///
+class FreeBSDMonitorState : public PluginState {
+public:
+    uint64_t m_lastThread = 0;
+
+    virtual FreeBSDMonitorState *clone() const {
+        return new FreeBSDMonitorState(*this);
+    }
+
+    static PluginState *factory(Plugin *p) {
+        return new FreeBSDMonitorState();
+    }
+};
+
 template <typename T> T &operator<<(T &stream, const S2E_FREEBSDMON_COMMANDS &c) {
     switch (c) {
         case FREEBSD_INIT:
@@ -94,6 +111,36 @@ void FreeBSDMonitor::initialize() {
     m_kernelPath = cfg->getString(getConfigKey() + ".kernelPath", "/boot/kernel/kernel");
 
     memset(&m_init, 0, sizeof(m_init));
+
+    s2e()->getCorePlugin()->onPrivilegeChange.connect(sigc::mem_fun(*this, &FreeBSDMonitor::onPrivilegeChange));
+}
+
+///
+/// There is no context switch notification from the guest. A switch to another
+/// thread always goes through the kernel, so the current thread is compared
+/// with the previous one whenever the CPU returns to user mode.
+///
+void FreeBSDMonitor::onPrivilegeChange(S2EExecutionState *state, unsigned previous, unsigned current) {
+    if (current != 3 || !m_guestInitialized) {
+        return;
+    }
+
+    checkTaskSwitch(state);
+}
+
+void FreeBSDMonitor::checkTaskSwitch(S2EExecutionState *state) {
+    uint64_t thread = 0;
+    if (!getCurrentThread(state, thread)) {
+        return;
+    }
+
+    DECLARE_PLUGINSTATE(FreeBSDMonitorState, state);
+    if (plgState->m_lastThread == thread) {
+        return;
+    }
+
+    plgState->m_lastThread = thread;
+    onProcessOrThreadSwitch.emit(state);
 }
 
 /*****************************************************************************/
@@ -422,6 +469,8 @@ void FreeBSDMonitor::handleInit(S2EExecutionState *state, const S2E_FREEBSDMON_C
                               << " curthread=" << hexval(thread) << (okThread ? "" : " (failed)")
                               << " proc=" << hexval(proc) << (okProc ? "" : " (failed)") << "\n";
     }
+
+    checkTaskSwitch(state);
 
     uint64_t pid = getPid(state), tid = getTid(state);
     getDebugStream(state) << "Current process from pcpu: pid=" << pid << " tid=" << tid
