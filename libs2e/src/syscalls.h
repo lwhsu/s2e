@@ -30,7 +30,13 @@
 
 typedef int (*open_t)(const char *pathname, int flags, mode_t mode);
 typedef int (*close_t)(int fd);
+#ifdef __linux__
 typedef int (*ioctl_t)(int d, int request, ...);
+#else
+// BSD libc declares the request as unsigned long; keep the type exact so that
+// requests with the high bit set are not sign-extended when forwarded.
+typedef int (*ioctl_t)(int d, unsigned long request, ...);
+#endif
 typedef ssize_t (*write_t)(int fd, const void *buf, size_t count);
 typedef int (*dup_t)(int fd);
 
