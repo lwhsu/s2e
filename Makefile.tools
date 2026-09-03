@@ -40,18 +40,31 @@ GUEST_TOOLS_BINARIES_URL=https://github.com/S2E/s2e/releases/download/v2.0.0/
 
 
 all: guest-tools
-install: guest-tools-install guest-tools-win-install
-install-debug: guest-tools-install guest-tools-win-install
 
 guest-tools32 guest-tools64 guest-tools32-win guest-tools64-win:
 	echo $(shell  pwd)
 	ls -la $(shell  pwd)
 	mkdir -p $@
 
+ifeq ($(PLATFORM),freebsd)
+# Native tools for FreeBSD guests. The 32-bit variant needs the lib32 distribution
+# and the Windows tools need mingw, neither is available by default.
+GUEST_TOOLCHAIN_PREFIX=Toolchain-freebsd
+WINDRV_DEPS=
+install: guest-tools-install
+install-debug: guest-tools-install
+guest-tools: stamps/guest-tools64-make
+guest-tools-install: stamps/guest-tools64-install
+else
+GUEST_TOOLCHAIN_PREFIX=Toolchain-linux
+WINDRV_DEPS=guest-tools32-windrv guest-tools64-windrv
+install: guest-tools-install guest-tools-win-install
+install-debug: guest-tools-install guest-tools-win-install
 guest-tools: stamps/guest-tools32-make stamps/guest-tools64-make
-guest-tools-win: stamps/guest-tools32-win-make stamps/guest-tools64-win-make
-
 guest-tools-install: stamps/guest-tools32-install stamps/guest-tools64-install
+endif
+
+guest-tools-win: stamps/guest-tools32-win-make stamps/guest-tools64-win-make
 guest-tools-win-install: stamps/guest-tools32-win-install stamps/guest-tools64-win-install
 
 
@@ -59,14 +72,14 @@ stamps/guest-tools32-configure: CONFIGURE_COMMAND = cmake                       
                                                     -DCMAKE_C_COMPILER=$(SYSTEM_CLANG_CC)                                    \
                                                     -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                                 \
                                                     -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)/bin/guest-tools32                   \
-                                                    -DCMAKE_TOOLCHAIN_FILE=$(S2E_SRC)/guest/cmake/Toolchain-linux-i686.cmake \
+                                                    -DCMAKE_TOOLCHAIN_FILE=$(S2E_SRC)/guest/cmake/$(GUEST_TOOLCHAIN_PREFIX)-i686.cmake \
                                                     $(S2E_SRC)/guest
 
 stamps/guest-tools64-configure: CONFIGURE_COMMAND = cmake                                                                       \
                                                     -DCMAKE_C_COMPILER=$(SYSTEM_CLANG_CC)                                       \
                                                     -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                                    \
                                                     -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)/bin/guest-tools64                      \
-                                                    -DCMAKE_TOOLCHAIN_FILE=$(S2E_SRC)/guest/cmake/Toolchain-linux-x86_64.cmake  \
+                                                    -DCMAKE_TOOLCHAIN_FILE=$(S2E_SRC)/guest/cmake/$(GUEST_TOOLCHAIN_PREFIX)-x86_64.cmake  \
                                                     $(S2E_SRC)/guest
 
 stamps/guest-tools32-win-configure: CONFIGURE_COMMAND = cmake                                                                       \
@@ -119,6 +132,6 @@ stamps/guest-tools%-win-install: stamps/guest-tools%-win-make guest-tools32-wind
 	$(MAKE) -C guest-tools$*-win install
 	touch $@
 
-stamps/guest-tools%-install: stamps/guest-tools%-make guest-tools32-windrv guest-tools64-windrv
+stamps/guest-tools%-install: stamps/guest-tools%-make $(WINDRV_DEPS)
 	$(MAKE) -C guest-tools$* install
 	touch $@
