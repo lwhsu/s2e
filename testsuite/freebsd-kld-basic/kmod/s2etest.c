@@ -34,6 +34,7 @@
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/module.h>
+#include <sys/sysctl.h>
 
 #include <vm/vm.h>
 #include <vm/pmap.h>
@@ -90,13 +91,40 @@ static void s2etest_run(void) {
     s2e_kill_state(0, "s2etest done");
 }
 
+///
+/// The work is triggered by writing 1 to debug.s2etest.run instead of running
+/// in MOD_LOAD: the kernel only announces a module (kld_load) after its
+/// MOD_LOAD handler returned, and the analysis wants the module known to S2E
+/// (coverage, fault injection hooks) when its code runs. Real drivers are
+/// handled the same way: load them with their device disabled (devctl
+/// disable), then devctl enable/attach.
+///
+static int s2etest_sysctl_run(SYSCTL_HANDLER_ARGS) {
+    int value = 0, error;
+
+    error = sysctl_handle_int(oidp, &value, 0, req);
+    if (error != 0 || req->newptr == NULL) {
+        return error;
+    }
+
+    if (value != 0) {
+        s2etest_run();
+    }
+
+    return 0;
+}
+
+SYSCTL_NODE(_debug, OID_AUTO, s2etest, CTLFLAG_RW | CTLFLAG_MPSAFE, 0, "S2E kld test");
+SYSCTL_PROC(_debug_s2etest, OID_AUTO, run, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_MPSAFE, NULL, 0, s2etest_sysctl_run, "I",
+            "Run the test");
+
 static int s2etest_modevent(module_t mod, int type, void *data) {
     (void) mod;
     (void) data;
 
     switch (type) {
         case MOD_LOAD:
-            s2etest_run();
+            printf("s2etest: loaded, trigger with sysctl debug.s2etest.run=1\n");
             return 0;
         case MOD_UNLOAD:
             return 0;

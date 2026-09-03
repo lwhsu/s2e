@@ -140,8 +140,10 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
     physaddr = (physaddr & TARGET_PAGE_MASK) + addr;
 
 #if defined(CONFIG_SYMBEX) && defined(CONFIG_SYMBEX_MP)
-    // Can't handle symbolic mmio from helpers
-    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(addr, DATA_SIZE))) {
+    // Can't handle symbolic mmio from helpers.
+    // The symbolic ranges are physical addresses: the guest may map the device
+    // anywhere in its virtual address space.
+    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
         g_sqi.exec.switch_to_symbolic(retaddr);
     }
 

@@ -22,6 +22,13 @@
 
 set -e
 
+echo "Patching bootstrap.sh..."
+
+# Trigger the test after the module is loaded and announced to S2E
+sed -i.bak 's|^    kldload "${TARGET}"$|    kldload "${TARGET}"\n    sysctl debug.s2etest.run=1|' "$PROJECT_DIR/bootstrap.sh" \
+    && rm -f "$PROJECT_DIR/bootstrap.sh.bak"
+grep -q "debug.s2etest.run=1" "$PROJECT_DIR/bootstrap.sh"
+
 echo "Patching s2e-config.lua..."
 
 cat << LUA >> $PROJECT_DIR/s2e-config.lua
