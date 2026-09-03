@@ -255,14 +255,77 @@ bool FreeBSDMonitor::getCurrentStack(S2EExecutionState *state, uint64_t *base, u
     }
 
     auto sp = state->regs()->getSp();
-    if (sp < maxsaddr || sp >= stacktop) {
-        // The stack pointer is not in the main stack (e.g., a libthr thread)
+    if (sp >= maxsaddr && sp < stacktop) {
+        *base = maxsaddr;
+        *size = stacktop - maxsaddr;
+        return true;
+    }
+
+    // Not the main stack (e.g., a libthr thread): find the mapping that holds sp
+    return lookupMapEntry(state, vmspace + m_init.vmspace_map, sp, base, size);
+}
+
+// vm_map_entry_succ() of sys/vm/vm_map.h: the entries form a threaded binary tree
+bool FreeBSDMonitor::mapEntrySucc(S2EExecutionState *state, uint64_t entry, uint64_t &after) {
+    uint64_t left, leftStart, entryStart;
+    if (!readGuestPointer(state, entry + m_init.map_entry_right, after) ||
+        !readGuestPointer(state, after + m_init.map_entry_left, left) ||
+        !readGuestPointer(state, left + m_init.map_entry_start, leftStart) ||
+        !readGuestPointer(state, entry + m_init.map_entry_start, entryStart)) {
         return false;
     }
 
-    *base = maxsaddr;
-    *size = stacktop - maxsaddr;
+    if (leftStart > entryStart) {
+        unsigned depth = 0;
+        do {
+            after = left;
+            if (!readGuestPointer(state, after + m_init.map_entry_left, left)) {
+                return false;
+            }
+            if (++depth > 1024) {
+                return false;
+            }
+        } while (left != entry);
+    }
+
     return true;
+}
+
+bool FreeBSDMonitor::lookupMapEntry(S2EExecutionState *state, uint64_t map, uint64_t address, uint64_t *base,
+                                    uint64_t *size) {
+    const uint64_t header = map + m_init.map_header;
+    uint64_t entry = header;
+
+    for (unsigned i = 0; i < 65536; ++i) {
+        if (!mapEntrySucc(state, entry, entry) || entry == header) {
+            return false;
+        }
+
+        uint64_t start, end;
+        uint32_t eflags;
+        if (!readGuestPointer(state, entry + m_init.map_entry_start, start) ||
+            !readGuestPointer(state, entry + m_init.map_entry_end, end) ||
+            !readGuestInt32(state, entry + m_init.map_entry_eflags, eflags)) {
+            return false;
+        }
+
+        if (address >= start && address < end) {
+            if (eflags & m_init.map_entry_guard) {
+                // A stack guard: the stack pointer is below its stack
+                return false;
+            }
+            *base = start;
+            *size = end - start;
+            return true;
+        }
+
+        if (start > address) {
+            // Entries are sorted
+            return false;
+        }
+    }
+
+    return false;
 }
 
 bool FreeBSDMonitor::getProcessName(S2EExecutionState *state, uint64_t pid, std::string &name) {

@@ -109,6 +109,8 @@ private:
 
     bool readGuestPointer(S2EExecutionState *state, uint64_t address, uint64_t &value) const;
     bool readGuestInt32(S2EExecutionState *state, uint64_t address, uint32_t &value) const;
+    bool mapEntrySucc(S2EExecutionState *state, uint64_t entry, uint64_t &after);
+    bool lookupMapEntry(S2EExecutionState *state, uint64_t map, uint64_t address, uint64_t *base, uint64_t *size);
 
     bool isInKernelMode(S2EExecutionState *state) const;
     bool getCurrentThread(S2EExecutionState *state, uint64_t &thread) const;
