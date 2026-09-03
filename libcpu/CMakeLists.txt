@@ -18,6 +18,12 @@ write_basic_package_version_file(${CMAKE_VERSION_FILE}
 
 set(CMAKE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake")
 set(LIBCPU_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
+
+# cpu/kvm.h needs the Linux UAPI headers (linux/types.h, linux/ioctl.h, asm/kvm.h).
+# Non-Linux hosts get a self-contained copy instead.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND LIBCPU_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include/linux-compat")
+endif()
 set(LIBCPU_LIBRARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/src")
 configure_file(LIBCPUConfig.cmake.in ${CMAKE_CONFIG_FILE} @ONLY)
 
@@ -37,11 +43,19 @@ option(WITH_TARGET "i386-softmmu, etc.")
 
 set(S2EGUEST_INCLUDE_DIR CACHE STRING "path to S2E guest include directory")
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CONFIG_HOST_OS "#define CONFIG_LINUX 1")
+elseif(CMAKE_SYSTEM_NAME MATCHES "BSD")
+    set(CONFIG_HOST_OS "#define CONFIG_BSD 1")
+else()
+    message(FATAL_ERROR "Unsupported host OS ${CMAKE_SYSTEM_NAME}")
+endif()
+
 set(CONFIG_HOST_H "${CMAKE_BINARY_DIR}/include/cpu/config-host.h")
 file(WRITE ${CONFIG_HOST_H}
 "
 #define HOST_X86_64 1
-#define CONFIG_LINUX 1
+${CONFIG_HOST_OS}
 #define CONFIG_LIBCPU_DATADIR \"${CONFIG_LIBCPU_DATADIR}\"
 #define LIBCPU_VERSION \"1.0.50\"
 #define CONFIG_DATE \"${CONFIG_DATE}\"
@@ -111,6 +125,7 @@ include_directories(${GLIB_PKG_INCLUDE_DIRS}
                     ${LIBQ_INCLUDE_DIR}
                     ${CAPSTONE_INCLUDE_DIRS}
                     ${LIBTCG_INCLUDE_DIR}
+                    ${LIBCPU_INCLUDE_DIR}
                     ${HOST_INCLUDE_DIR}
                     ${TARGET_INCLUDE_DIR}
                     ${S2EGUEST_INCLUDE_DIR})
