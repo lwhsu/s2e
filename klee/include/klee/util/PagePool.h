@@ -38,7 +38,7 @@ class Pages;
 typedef boost::intrusive_ptr<Pages> PagesPtr;
 
 class Pages : public RefCount {
-    static unsigned const PAGE_SIZE = 0x1000;
+    static unsigned const KLEE_PAGE_SIZE = 0x1000;
     BitArrayPtr m_pageStatus;
     uint8_t *m_buffer;
     size_t m_size;

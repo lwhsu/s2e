@@ -170,9 +170,9 @@ ObjectStatePtr AddressSpace::getWriteable(const ObjectStateConstPtr &os) {
 
 bool AddressSpace::splitMemoryObject(IAddressSpaceNotification &state, const ObjectStateConstPtr &originalObject,
                                      ResolutionList &rl) {
-    static const unsigned PAGE_SIZE = 0x1000;
+    static const unsigned KLEE_PAGE_SIZE = 0x1000;
     // Only split memory objects
-    if (originalObject->getSize() != PAGE_SIZE || !originalObject->isSplittable()) {
+    if (originalObject->getSize() != KLEE_PAGE_SIZE || !originalObject->isSplittable()) {
         return false;
     }
 
@@ -190,7 +190,7 @@ bool AddressSpace::splitMemoryObject(IAddressSpaceNotification &state, const Obj
 
     // XXX: for now, split into fixed-size objects
     const auto size = 128u;
-    for (unsigned i = 0; i < PAGE_SIZE / size; ++i) {
+    for (unsigned i = 0; i < KLEE_PAGE_SIZE / size; ++i) {
         offsets.push_back(i * 128);
     }
 
