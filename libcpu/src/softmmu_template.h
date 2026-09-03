@@ -243,8 +243,9 @@ DATA_TYPE glue(glue(io_read_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_p
     res.res = glue(glue(io_read, SUFFIX), MMUSUFFIX)(env, origaddr, addr, retaddr);
 
 end:
-    // The symbolic hardware ranges are physical addresses
-    tcg_llvm_trace_mmio_access(naddr, res.res, DATA_SIZE, 0);
+    // The symbolic hardware ranges are physical addresses. The handler returns
+    // the (possibly symbolic) value of the access.
+    res.res = (DATA_TYPE) tcg_llvm_trace_mmio_access(naddr, res.res, DATA_SIZE, 0);
 
     SE_SET_MEM_IO_VADDR(env, 0, 1);
     return res.res;
