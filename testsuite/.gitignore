@@ -8,3 +8,16 @@ bin/*
 
 freebsd64*
 freebsd32*
+# kld build outputs (bsd.kmod.mk in testsuite/*/kmod)
+*.ko
+*.ko.full
+*.ko.debug
+.depend*
+bus_if.h
+device_if.h
+pci_if.h
+export_syms
+opt_global.h
+machine
+x86
+i386
