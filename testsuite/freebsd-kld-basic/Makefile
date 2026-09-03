@@ -33,9 +33,11 @@ TARGETS=
 endif
 
 $(TARGET): kmod/s2etest.c kmod/Makefile
+	# MK_REPRODUCIBLE_BUILD=no keeps the real source paths in the debug info (coverage needs them)
 	env -u MAKEFLAGS -u MFLAGS make -C kmod SYSDIR=$(S2E_FREEBSD_SYSDIR) \
-	    S2E_INCLUDE_DIR=$(S2ESRC)/guest/common/include DEBUG_FLAGS=-g
-	cp kmod/s2etest.ko "$@"
+	    S2E_INCLUDE_DIR=$(S2ESRC)/guest/common/include DEBUG_FLAGS=-g MK_REPRODUCIBLE_BUILD=no
+	# bsd.kmod.mk strips the debug info into a separate file; the coverage tools need the full object
+	if [ -f kmod/s2etest.ko.full ]; then cp kmod/s2etest.ko.full "$@"; else cp kmod/s2etest.ko "$@"; fi
 
 all: $(TARGETS)
 
