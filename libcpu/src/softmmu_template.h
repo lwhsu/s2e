@@ -422,7 +422,7 @@ void glue(glue(io_write, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_addr
 
 #if defined(CONFIG_SYMBEX) && defined(CONFIG_SYMBEX_MP)
     // XXX: avoid switch to symbolic mode here, not needed for writes
-    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(addr, DATA_SIZE))) {
+    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
         g_sqi.exec.switch_to_symbolic(retaddr);
     }
 
