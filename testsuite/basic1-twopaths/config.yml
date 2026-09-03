@@ -5,6 +5,7 @@ test:
         - ["@@"]
 
     targets:
+        - freebsd64-basic1-twopaths
         - windows64-basic1-twopaths.exe
         - windows32-basic1-twopaths.exe
         - linux32-basic1-twopaths

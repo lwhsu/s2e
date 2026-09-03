@@ -5,6 +5,7 @@ test:
         - ["@@"]
 
     targets:
+        - freebsd64-basic12-256paths
         - windows64-basic12-256paths.exe
         - windows32-basic12-256paths.exe
         - linux32-basic12-256paths

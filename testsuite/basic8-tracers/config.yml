@@ -2,6 +2,7 @@ test:
     description: "Check that execution tracers work properly"
 
     targets:
+        - freebsd64-basic8-tracers
         - linux32-basic8-tracers
         - linux64-basic8-tracers
         - windows32-basic8-tracers.exe

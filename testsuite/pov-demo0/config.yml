@@ -8,6 +8,7 @@ test:
         - ["@@"]
 
     targets:
+        - freebsd64-pov-demo0
         - windows64-pov-demo0.exe
         - windows32-pov-demo0.exe
         - linux32-pov-demo0

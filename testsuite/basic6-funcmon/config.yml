@@ -2,6 +2,7 @@ test:
     description: "Checks that function monitor works properly"
 
     targets:
+        - freebsd64-basic6-funcmon
         - linux32-basic6-funcmon
         - linux64-basic6-funcmon
         - windows32-basic6-funcmon.exe

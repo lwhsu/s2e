@@ -2,6 +2,7 @@ test:
     description: "Check that InstructionCounter works properly"
 
     targets:
+        - freebsd64-basic11-icount
         - windows64-basic11-icount.exe
         - windows32-basic11-icount.exe
         - linux32-basic11-icount

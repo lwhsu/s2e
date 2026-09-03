@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
 
-sed -i 's/S2E_SYM_ARGS=""/S2E_SYM_ARGS="1"/g' "$PROJECT_DIR/bootstrap.sh"
+sed -i.bak 's/S2E_SYM_ARGS=""/S2E_SYM_ARGS="1"/g' "$PROJECT_DIR/bootstrap.sh" && rm -f "$PROJECT_DIR/bootstrap.sh".bak
