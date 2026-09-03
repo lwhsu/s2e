@@ -58,9 +58,12 @@ static void s2etest_run(void) {
     s2e_message("s2etest: start");
 
     // 1. Symbolic port I/O
+    // The two arms call different functions: with the same callee the compiler
+    // turns the if into a select of the string pointer, and a symbolic pointer
+    // is concretized instead of forking.
     port_value = inb(S2ETEST_PORT);
     if (port_value == 0x42) {
-        s2e_message("s2etest: port value is 0x42");
+        s2e_warning("s2etest: port value is 0x42");
     } else {
         s2e_message("s2etest: port value is not 0x42");
     }
@@ -73,7 +76,7 @@ static void s2etest_run(void) {
     }
     mmio_value = *mmio;
     if (mmio_value & 1) {
-        s2e_message("s2etest: mmio bit 0 is set");
+        s2e_warning("s2etest: mmio bit 0 is set");
     } else {
         s2e_message("s2etest: mmio bit 0 is clear");
     }
@@ -82,7 +85,7 @@ static void s2etest_run(void) {
     // 3. Fault injection into malloc(M_NOWAIT)
     buffer = malloc(64, M_S2ETEST, M_NOWAIT);
     if (buffer == NULL) {
-        s2e_message("s2etest: malloc failed, taking the error path");
+        s2e_warning("s2etest: malloc failed, taking the error path");
     } else {
         s2e_message("s2etest: malloc succeeded");
         free(buffer, M_S2ETEST);
