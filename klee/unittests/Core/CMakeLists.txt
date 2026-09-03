@@ -8,7 +8,8 @@ target_link_libraries(CoreTest PRIVATE kleeCore kleeModule kleaverSolver kleaver
 target_link_libraries(ExecutorTest PRIVATE kleeCore kleeModule kleaverSolver kleaverExpr kleeSupport kleeBasic ${LLVM_EXECUTOR_LIBS})
 
 # Compile C sources to LLVM bitcode and expose their paths to the test.
-find_program(CLANG_EXECUTABLE NAMES clang-19 clang REQUIRED)
+get_filename_component(CLANG_HINT "${CMAKE_C_COMPILER}" DIRECTORY)
+find_program(CLANG_EXECUTABLE NAMES clang-19 clang19 clang HINTS ${CLANG_HINT} REQUIRED)
 
 foreach(src add compute function)
     add_custom_command(

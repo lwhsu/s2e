@@ -37,10 +37,16 @@ foreach(dir ${dirs})
 endforeach()
 separate_arguments(BC_INC_DIRS)
 
+# The bitcode must be produced by LLVM 19 tools. Distributions name them differently
+# (clang-19 on Debian/Ubuntu, clang19 on FreeBSD), so look them up next to the configured compiler.
+get_filename_component(BC_TOOLS_HINT "${CMAKE_C_COMPILER}" DIRECTORY)
+find_program(BC_CLANG NAMES clang-19 clang19 clang HINTS ${BC_TOOLS_HINT} REQUIRED)
+find_program(BC_LLVM_LINK NAMES llvm-link-19 llvm-link19 llvm-link HINTS ${BC_TOOLS_HINT} REQUIRED)
+
 add_custom_target(
     op_helper_bc ALL
-    clang-19 ${CMAKE_CURRENT_SOURCE_DIR}/target-i386/op_helper.c -c ${CARGS_LIST} -Wno-unused-function -O3 -DSYMBEX_LLVM_LIB -march=x86-64 -emit-llvm -o ${CMAKE_CURRENT_BINARY_DIR}/op_helper-org.bc ${BC_INC_DIRS} -fno-slp-vectorize -fno-tree-vectorize
-    COMMAND llvm-link-19 ${CMAKE_CURRENT_BINARY_DIR}/op_helper-org.bc ${LIBTCG_DIR}/src/softfloat.bc -o ${CMAKE_CURRENT_BINARY_DIR}/op_helper.bc
+    ${BC_CLANG} ${CMAKE_CURRENT_SOURCE_DIR}/target-i386/op_helper.c -c ${CARGS_LIST} -Wno-unused-function -O3 -DSYMBEX_LLVM_LIB -march=x86-64 -emit-llvm -o ${CMAKE_CURRENT_BINARY_DIR}/op_helper-org.bc ${BC_INC_DIRS} -fno-slp-vectorize -fno-tree-vectorize
+    COMMAND ${BC_LLVM_LINK} ${CMAKE_CURRENT_BINARY_DIR}/op_helper-org.bc ${LIBTCG_DIR}/src/softfloat.bc -o ${CMAKE_CURRENT_BINARY_DIR}/op_helper.bc
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/target-i386/op_helper.c
 )
 
