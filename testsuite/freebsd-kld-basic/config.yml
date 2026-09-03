@@ -4,5 +4,10 @@ test:
     targets:
         - freebsd64-kld-basic.ko
 
+    # The module is built against S2E_FREEBSD_SYSDIR (the 15.1 tree); it does not load on other kernels.
+    target-images:
+        - freebsd-15.1-x86_64
+        - freebsd-15.1-x86_64-s2ekernel
+
     build-options:
         post-project-generation-script: fix-config.sh
