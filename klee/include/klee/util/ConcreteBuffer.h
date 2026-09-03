@@ -74,9 +74,9 @@ class ConcreteBuffer : public RefCount {
     }
 
     uint8_t *allocateBuffer(unsigned size) {
-        if (size == PAGE_SIZE) {
+        if (size == KLEE_PAGE_SIZE) {
             return PagePool::get()->alloc();
-        } else if ((size % PAGE_SIZE) == 0) {
+        } else if ((size % KLEE_PAGE_SIZE) == 0) {
             uint8_t *ret = osAlloc(size);
             if (!ret) {
                 exit(-1);
@@ -96,9 +96,9 @@ class ConcreteBuffer : public RefCount {
     }
 
     ~ConcreteBuffer() {
-        if (m_size == PAGE_SIZE) {
+        if (m_size == KLEE_PAGE_SIZE) {
             PagePool::get()->free(m_buffer);
-        } else if ((m_size % PAGE_SIZE) == 0) {
+        } else if ((m_size % KLEE_PAGE_SIZE) == 0) {
             osFree(m_buffer, m_size);
         } else {
             delete[] m_buffer;
@@ -106,7 +106,7 @@ class ConcreteBuffer : public RefCount {
     }
 
 public:
-    static const unsigned PAGE_SIZE = 0x1000;
+    static const unsigned KLEE_PAGE_SIZE = 0x1000;
 
     static ConcreteBufferPtr create(size_t size) {
         return ConcreteBufferPtr(new ConcreteBuffer(size));

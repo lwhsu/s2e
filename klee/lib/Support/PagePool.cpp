@@ -36,7 +36,7 @@ const uint64_t PagePoolDesc::POOL_PAGE_SIZE = PagePoolDesc::POOL_PAGE_COUNT * 40
 
 Pages::Pages(unsigned numPages) : m_buffer(nullptr), m_size(0) {
     assert(numPages > 0);
-    m_size = numPages * PAGE_SIZE;
+    m_size = numPages * KLEE_PAGE_SIZE;
     m_buffer = (uint8_t *) mmap(NULL, m_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (m_buffer == MAP_FAILED) {
         throw std::bad_alloc();
@@ -55,7 +55,7 @@ uint8_t *Pages::alloc() {
     }
 
     m_pageStatus->unset(index);
-    auto ret = getBuffer() + index * PAGE_SIZE;
+    auto ret = getBuffer() + index * KLEE_PAGE_SIZE;
     assert(ret >= getBuffer());
     return ret;
 }
@@ -63,7 +63,7 @@ uint8_t *Pages::alloc() {
 void Pages::free(uint8_t *addr) {
     assert(addr >= getBuffer() && addr < getBuffer() + m_size);
     ptrdiff_t offset = addr - getBuffer();
-    auto page = offset / PAGE_SIZE;
+    auto page = offset / KLEE_PAGE_SIZE;
     assert(!m_pageStatus->get(page));
     m_pageStatus->set(page);
 }
