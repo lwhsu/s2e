@@ -241,7 +241,8 @@ template <typename EhdrT, typename PhdrT> bool ELFFile<EhdrT, PhdrT>::initialize
 
     std::vector<uint64_t> addresses;
     uint64_t imageSize = 0;
-    PhdrT *phdr = getPhdr(m_elf);
+    // libelf asserts when asked for the program headers of a file that has none
+    PhdrT *phdr = numPhdrs > 0 ? getPhdr(m_elf) : nullptr;
 
     for (unsigned i = 0; i < numPhdrs; ++i, ++phdr) {
         SectionDescriptor sd;
