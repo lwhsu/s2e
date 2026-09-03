@@ -87,6 +87,9 @@ private:
     // XXX: do we need this? Looks unused
     bool m_signalPending = false;
 
+    // Set once the process was asked to terminate with SIGTERM.
+    bool m_termSignalSent = false;
+
     VirtualApic m_vapic;
 
     volatile bool m_inKvmRun = false;
@@ -181,6 +184,7 @@ public:
     void cloneProcess(void);
     void interrupt(int mask, bool reset);
     void request_exit_cpu_loop();
+    int exitCpuLoopForTermination();
 
     std::shared_ptr<LocalApic> lapic() const {
         return m_lapic;

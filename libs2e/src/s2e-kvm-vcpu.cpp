@@ -22,6 +22,7 @@
 
 #include <inttypes.h>
 #include <memory.h>
+#include <unistd.h>
 
 #include <cpu/exec.h>
 #include <cpu/i386/cpu.h>
@@ -282,10 +283,7 @@ int VCPU::run(int vcpu_fd) {
     }
 
     if (m_kvm->exiting()) {
-        g_kvm_vcpu_buffer->exit_reason = KVM_EXIT_INTR;
-        kill(getpid(), SIGTERM);
-        errno = EINTR;
-        return -1;
+        return exitCpuLoopForTermination();
     }
 
     /* Return asap if interrupts can be injected */
@@ -321,10 +319,7 @@ int VCPU::run(int vcpu_fd) {
 
     if (m_kvm->exiting()) {
         unlock();
-        g_kvm_vcpu_buffer->exit_reason = KVM_EXIT_INTR;
-        kill(getpid(), SIGTERM);
-        errno = EINTR;
-        return -1;
+        return exitCpuLoopForTermination();
     }
 
     m_handlingKvmCallback =
@@ -453,6 +448,31 @@ void VCPU::cloneProcess(void) {
 
 void VCPU::request_exit_cpu_loop() {
     cpu_exit(m_env);
+}
+
+///
+/// \brief exitCpuLoopForTermination makes KVM_RUN fail with EINTR while
+/// the process is terminating and asks the client to shut down.
+///
+/// The client (QEMU) exits when its main thread receives SIGTERM. The signal
+/// is sent only once: the client calls KVM_RUN again right after EINTR, and
+/// sending SIGTERM on every call keeps the main thread in the signal handler
+/// forever on hosts that deliver the pending signal again before the thread
+/// returns to user mode (observed on FreeBSD). Sleeping briefly also lets
+/// the main thread make progress instead of contending for its lock.
+///
+int VCPU::exitCpuLoopForTermination() {
+    g_kvm_vcpu_buffer->exit_reason = KVM_EXIT_INTR;
+
+    if (!m_termSignalSent) {
+        m_termSignalSent = true;
+        kill(getpid(), SIGTERM);
+    } else {
+        usleep(1000);
+    }
+
+    errno = EINTR;
+    return -1;
 }
 
 ///
