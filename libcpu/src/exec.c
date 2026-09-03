@@ -175,7 +175,7 @@ uintptr_t se_get_host_address(target_phys_addr_t paddr) {
     return sreg->kvm.userspace_addr + mem_desc_get_offset(sreg, paddr);
 }
 
-#if defined(__linux__) && !defined(TARGET_S390X)
+#if !defined(TARGET_S390X)
 
 static void unassigned_mem_write(target_phys_addr_t addr, uint64_t val, unsigned size) {
 #ifdef DEBUG_UNASSIGNED
