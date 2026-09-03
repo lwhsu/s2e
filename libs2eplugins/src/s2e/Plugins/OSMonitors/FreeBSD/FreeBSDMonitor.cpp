@@ -108,6 +108,15 @@ bool FreeBSDMonitor::readGuestInt32(S2EExecutionState *state, uint64_t address, 
     return state->mem()->read(address, &value, sizeof(value));
 }
 
+///
+/// Kernel data structures may live in the direct map (0xfffff800...), which is
+/// below VM_MIN_KERNEL_ADDRESS, so pointers are only checked against the
+/// canonical upper half of the address space.
+///
+static inline bool isKernelPointer(uint64_t p) {
+    return p >= 0xffff800000000000ULL;
+}
+
 bool FreeBSDMonitor::isInKernelMode(S2EExecutionState *state) const {
     uint32_t cs = s2e_read_register_concrete_fast<uint32_t>(CPU_OFFSET(segs[R_CS].selector));
     return (cs & 3) == 0;
@@ -134,11 +143,11 @@ bool FreeBSDMonitor::getCurrentThread(S2EExecutionState *state, uint64_t &thread
 #endif
     }
 
-    if (pcpu < m_kernelStart) {
+    if (!isKernelPointer(pcpu)) {
         return false;
     }
 
-    return readGuestPointer(state, pcpu + m_init.pcpu_curthread, thread) && thread >= m_kernelStart;
+    return readGuestPointer(state, pcpu + m_init.pcpu_curthread, thread) && isKernelPointer(thread);
 }
 
 bool FreeBSDMonitor::getCurrentProc(S2EExecutionState *state, uint64_t &proc) const {
@@ -147,7 +156,7 @@ bool FreeBSDMonitor::getCurrentProc(S2EExecutionState *state, uint64_t &proc) co
         return false;
     }
 
-    return readGuestPointer(state, thread + m_init.thread_proc, proc) && proc >= m_kernelStart;
+    return readGuestPointer(state, thread + m_init.thread_proc, proc) && isKernelPointer(proc);
 }
 
 uint64_t FreeBSDMonitor::getPid(S2EExecutionState *state) {
