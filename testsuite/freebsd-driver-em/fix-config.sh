@@ -48,6 +48,6 @@ pluginsConfig.SymbolicHardware = {
     },
 }
 
--- Bound the exploration of the attach path
-pluginsConfig.ForkLimiter.maxForkCount = 200
+-- Bound the exploration of the attach path (register polling loops fork at the same pc forever)
+pluginsConfig.ForkLimiter.maxForkCount = 5
 LUA
