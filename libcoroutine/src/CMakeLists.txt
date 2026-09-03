@@ -3,4 +3,4 @@
 
 add_library(coroutine coroutine.c coroutine-ucontext.c)
 
-set(CMAKE_C_FLAGS "-Wall -Werror -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fPIC")

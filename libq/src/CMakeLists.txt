@@ -28,25 +28,25 @@ add_library (
 )
 
 add_executable (check-qdict tests/check-qdict.c)
-target_link_libraries(check-qdict q glib-2.0)
+target_link_libraries(check-qdict q glib-2.0 m)
 
 add_executable (check-qjson tests/check-qjson.c)
-target_link_libraries(check-qjson q glib-2.0)
+target_link_libraries(check-qjson q glib-2.0 m)
 
 add_executable (check-qlist tests/check-qlist.c)
-target_link_libraries(check-qlist q glib-2.0)
+target_link_libraries(check-qlist q glib-2.0 m)
 
 add_executable (check-qnull tests/check-qnull.c)
-target_link_libraries(check-qnull q glib-2.0)
+target_link_libraries(check-qnull q glib-2.0 m)
 
 add_executable (check-qnum tests/check-qnum.c)
-target_link_libraries(check-qnum q glib-2.0)
+target_link_libraries(check-qnum q glib-2.0 m)
 
 add_executable (check-qobject tests/check-qobject.c)
-target_link_libraries(check-qobject q glib-2.0)
+target_link_libraries(check-qobject q glib-2.0 m)
 
 add_executable (check-qstring tests/check-qstring.c)
-target_link_libraries(check-qstring q glib-2.0)
+target_link_libraries(check-qstring q glib-2.0 m)
 
 
-set(CMAKE_C_FLAGS "-Wall -Werror -Wno-initializer-overrides -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wno-initializer-overrides -fPIC")
