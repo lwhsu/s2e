@@ -6,3 +6,5 @@ cgc32*
 bin/*
 *.o
 
+freebsd64*
+freebsd32*
