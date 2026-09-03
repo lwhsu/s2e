@@ -323,6 +323,8 @@ int VCPU::setSystemRegisters(kvm_sregs *sregs) {
 
 int VCPU::setMSRs(kvm_msrs *msrs) {
     for (unsigned i = 0; i < msrs->nmsrs; ++i) {
+        libcpu_log_mask(CPU_LOG_KVM, "KVM_SET_MSRS index=%#x data=%#llx\n", msrs->entries[i].index,
+                        (unsigned long long) msrs->entries[i].data);
         helper_wrmsr_v(msrs->entries[i].index, msrs->entries[i].data);
     }
     return msrs->nmsrs;
@@ -530,6 +532,8 @@ int VCPU::getSystemRegisters(kvm_sregs *sregs) {
 int VCPU::getMSRs(kvm_msrs *msrs) {
     for (unsigned i = 0; i < msrs->nmsrs; ++i) {
         msrs->entries[i].data = helper_rdmsr_v(msrs->entries[i].index);
+        libcpu_log_mask(CPU_LOG_KVM, "KVM_GET_MSRS index=%#x data=%#llx\n", msrs->entries[i].index,
+                        (unsigned long long) msrs->entries[i].data);
     }
     return msrs->nmsrs;
 }
