@@ -58,11 +58,17 @@ endif
 S2E_PREFIX?=$(CURDIR)/opt
 S2E_BUILD:=$(CURDIR)
 
-# Build Z3 from binary (default, "yes") or source ("no")
+# Build Z3 from binary (default, "yes") or source ("no").
+# The binary release is linked against glibc, so non-Linux hosts must build from source.
+ifeq ($(PLATFORM),freebsd)
+USE_Z3_BINARY?=no
+SYSTEM_LLVM_CONFIG?=llvm-config$(SYSTEM_CLANG_VERSION)
+else
 USE_Z3_BINARY?=yes
+SYSTEM_LLVM_CONFIG?=llvm-config-$(SYSTEM_CLANG_VERSION)
+endif
 
 # System LLVM variables
-SYSTEM_LLVM_CONFIG?=llvm-config-19
 LLVM_VERSION := $(shell $(SYSTEM_LLVM_CONFIG) --version)
 LLVM_PREFIX := $(shell $(SYSTEM_LLVM_CONFIG) --prefix)
 LLVM_INCLUDEDIR := $(shell $(SYSTEM_LLVM_CONFIG) --includedir)
@@ -78,14 +84,16 @@ endif
 KLEE_DIRS=$(foreach suffix,-debug -release -coverage,$(addsuffix $(suffix),klee))
 
 # Z3 variables
-Z3_VERSION=4.13.0
+# 4.13.0 does not compile from source with clang 19 (stale template code in src/math/lp),
+# 4.13.4 is the first 4.13.x release that does.
+Z3_VERSION=4.13.4
 Z3_SRC=z3-$(Z3_VERSION).tar.gz
 Z3_SRC_DIR=z3-z3-$(Z3_VERSION)
 Z3_BUILD_DIR=z3
 Z3_URL=https://github.com/Z3Prover/z3
 Z3_BINARY_URL=https://github.com/Z3Prover/z3/releases/download/z3-$(Z3_VERSION)/
-Z3_BINARY=z3-$(Z3_VERSION)-x64-glibc-2.31.zip
-Z3_BINARY_DIR=z3-$(Z3_VERSION)-x64-glibc-2.31
+Z3_BINARY=z3-$(Z3_VERSION)-x64-glibc-2.35.zip
+Z3_BINARY_DIR=z3-$(Z3_VERSION)-x64-glibc-2.35
 
 # Lua variables
 LUA_VERSION=5.4.6
@@ -172,18 +180,21 @@ $(RAPIDJSON_BUILD_DIR):
 # Z3 #
 ######
 
+# Z3 >= 4.8 uses the Z3_ prefix for its cmake options and ships a top-level CMakeLists.txt
 Z3_CONFIGURE_FLAGS = -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)               \
                      -DCMAKE_C_COMPILER=$(SYSTEM_CLANG_CC)                     \
                      -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                  \
                      -DCMAKE_C_FLAGS="-fno-omit-frame-pointer -fPIC"    \
                      -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -fPIC"  \
-                     -DBUILD_LIBZ3_SHARED=Off                           \
-                     -DUSE_OPENMP=Off                                   \
+                     -DCMAKE_BUILD_TYPE=Release                         \
+                     -DZ3_BUILD_LIBZ3_SHARED=OFF                        \
+                     -DZ3_ENABLE_EXAMPLE_TARGETS=OFF                    \
+                     -DZ3_BUILD_DOCUMENTATION=OFF                       \
                      -G "Unix Makefiles"
 
-stamps/z3-configure: $(Z3_BUILD_DIR)
-	cd $(Z3_SRC_DIR) &&                                         \
-	python3 contrib/cmake/bootstrap.py create
+# The build directory is an order-only prerequisite: its mtime changes during the build,
+# which would otherwise retrigger the configure step on every make invocation.
+stamps/z3-configure: | $(Z3_BUILD_DIR) stamps
 	cd $(Z3_BUILD_DIR) &&                                       \
 	cmake $(Z3_CONFIGURE_FLAGS) $(S2E_BUILD)/$(Z3_SRC_DIR)
 	touch $@
@@ -220,7 +231,7 @@ endif
 # libdwarf #
 ############
 
-stamps/libdwarf-configure: $(LIBDWARF_BUILD_DIR)
+stamps/libdwarf-configure: | $(LIBDWARF_BUILD_DIR) stamps
 	cd $(LIBDWARF_BUILD_DIR) &&                                         \
 	CC=$(SYSTEM_CLANG_CC) CXX=$(SYSTEM_CLANG_CXX) $(S2E_BUILD)/$(LIBDWARF_SRC_DIR)/configure --prefix=$(S2E_PREFIX)
 	touch $@
@@ -242,7 +253,7 @@ RAPIDJSON_CONFIGURE_FLAGS = -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)                
                             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 
-stamps/rapidjson-configure: $(RAPIDJSON_BUILD_DIR)
+stamps/rapidjson-configure: | $(RAPIDJSON_BUILD_DIR) stamps
 	cd $(RAPIDJSON_BUILD_DIR) &&                                         \
 	cmake $(RAPIDJSON_CONFIGURE_FLAGS) $(S2E_BUILD)/$(RAPIDJSON_SRC_DIR)
 	touch $@
@@ -256,11 +267,13 @@ stamps/rapidjson-make: stamps/rapidjson-configure
 # Lua #
 #######
 
-stamps/lua-make: $(LUA_DIR)
+stamps/lua-make: $(LUA_DIR) | stamps
 	if [ "$(PLATFORM)" = "linux" ]; then \
 		$(MAKE) -C $^ linux CFLAGS="-DLUA_USE_LINUX -O2 -g -fPIC"; \
 	elif [ "$(PLATFORM)" = "darwin" ]; then \
 		$(MAKE) -C $^ macosx CFLAGS="-DLUA_USE_LINUX -O2 -g -fPIC"; \
+	elif [ "$(PLATFORM)" = "freebsd" ]; then \
+		$(MAKE) -C $^ freebsd CC=$(SYSTEM_CLANG_CC) CFLAGS="-DLUA_USE_LINUX -O2 -g -fPIC"; \
 	fi
 	touch $@
 
@@ -430,7 +443,7 @@ stamps/libcoroutine-release-make: stamps/libcoroutine-release-configure $(call F
 
 LIBS2E_CONFIGURE_FLAGS = --with-cc=$(SYSTEM_CLANG_CC)                                      \
                          --with-cxx=$(SYSTEM_CLANG_CXX)                                    \
-                         --with-cflags=$(CFLAGS_ARCH)                               \
+                         --with-cflags="$(CFLAGS_ARCH)"                             \
                          --with-liblua=$(S2E_BUILD)/$(LUA_DIR)/src                  \
                          --with-s2e-guest-incdir=$(S2E_SRC)/guest/common/include    \
                          --with-z3-incdir=$(S2E_PREFIX)/include                     \
