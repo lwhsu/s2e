@@ -27,18 +27,20 @@ SECTIONS
 {
         . = 0xe0000;
         _start = .;
+        /* Match the compiler's subsections too (.text.*, .rodata.str1.1, ...): lld places
+           orphan read-only sections before .text, which would put strings at the entry point. */
         .text : {
             _text_start = .;
-            *(.text)
+            *(.text .text.*)
             _text_end = .;
         }
 
         .data :
         {
             _data_start = .;
-            *(.rodata);
-            *(.data);
-            *(.bss);
+            *(.rodata .rodata.*);
+            *(.data .data.*);
+            *(.bss .bss.*);
             *(COMMON);
             _data_end = .;
         }
