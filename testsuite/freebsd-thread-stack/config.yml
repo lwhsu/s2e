@@ -1,0 +1,8 @@
+test:
+    description: "FreeBSD: StackMonitor gets the stack of every libthr thread from the process vm_map"
+
+    targets:
+        - freebsd64-thread-stack
+
+    build-options:
+        post-project-generation-script: fix-config.sh
