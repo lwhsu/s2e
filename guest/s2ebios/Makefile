@@ -57,6 +57,12 @@ S2E_BIOS_ASM_TESTS=utils/arch32.asm
 S2E_BIOS_C_SOURCE:=$(S2E_BIOS_C_SOURCE) vmm/vmm32.c
 endif
 
+# Select one of the built-in tests (range, constraints, selfmod, maze, symbhw_mmio, ...)
+# with make TEST=<name>. Without it the BIOS only runs the memory tests.
+ifneq ($(TEST),)
+BIOS_CFLAGS+=-DS2EBIOS_TEST_$(shell echo $(TEST) | tr a-z A-Z)
+endif
+
 S2E_BIOS_C_OBJ=$(S2E_BIOS_C_SOURCE:.c=.o) $(S2E_BIOS_ASM_TESTS:.asm=.o)
 
 .PHONY : all clean build-all
