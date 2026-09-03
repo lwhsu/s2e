@@ -26,6 +26,8 @@ else
     echo === No fault was injected into the driver
 fi
 
+# check_coverage reads the first "lines..." line of cov.log, i.e. the driver's: do not add kernel
+# tracking (mod_kernel) to this project's config or the number changes meaning
 check_coverage {{project_name}} 5
 
 s2e forkprofile {{ project_name }} > $S2E_LAST/forkprofile.txt
