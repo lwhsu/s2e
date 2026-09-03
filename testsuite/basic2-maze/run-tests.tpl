@@ -7,8 +7,16 @@ timeout --foreground --kill-after=30m 25m s2e run -n {{ project_name }}
 grep -q "You lose" $S2E_LAST/debug.txt
 grep -q "You win" $S2E_LAST/debug.txt
 
+# The number of states depends on how the compiler laid out the maze code:
+# 401 with the gcc builds (Linux, MinGW), 1841 with clang on FreeBSD.
+{% if 'freebsd' in project_name %}
+EXPECTED_STATES=1841
+{% else %}
+EXPECTED_STATES=401
+{% endif %}
+
 COUNT=$(grep '\[State' "$S2E_LAST/debug.txt" | cut -d ' ' -f 3 | cut -d ']' -f 1 | sort -n | uniq | wc -l)
-if [ $COUNT -ne 401 ]; then
+if [ $COUNT -ne $EXPECTED_STATES ]; then
     echo Incorrect number of states
     exit 1
 fi
