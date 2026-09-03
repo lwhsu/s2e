@@ -142,6 +142,14 @@ static Coroutine *_coroutine_new(uint64_t stack_size) {
     /* Don't allocate the stack on the heap in order to simplify debugging of potential
      * stack overflows.
      */
+#ifndef MAP_GROWSDOWN
+/* MAP_GROWSDOWN is Linux-only; the BSDs provide MAP_STACK for stack mappings. */
+#ifdef MAP_STACK
+#define MAP_GROWSDOWN MAP_STACK
+#else
+#define MAP_GROWSDOWN 0
+#endif
+#endif
     co->stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
     if (co->stack == MAP_FAILED) {
         g_free(co);
