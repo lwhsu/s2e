@@ -1,0 +1,8 @@
+test:
+    description: "FreeBSD kernel module: symbolic port I/O, symbolic MMIO and fault injection"
+
+    targets:
+        - freebsd64-kld-basic.ko
+
+    build-options:
+        post-project-generation-script: fix-config.sh

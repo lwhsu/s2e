@@ -581,9 +581,12 @@ void FreeBSDMonitor::handleKernelPanic(S2EExecutionState *state, const S2E_FREEB
 }
 
 ///
-/// Kernel modules on amd64 are relocatable objects whose sections are placed by
-/// the in-kernel linker, so their layout cannot be derived from the file alone.
-/// The module is described by a single section covering the whole linker file.
+/// Kernel modules on amd64 are relocatable objects: the in-kernel linker places
+/// their allocated sections one after the other in a single block. libvmi
+/// reproduces that layout from the .ko file in the guestfs (section "addresses"
+/// are offsets in the block), so the runtime address of a section is the
+/// linker file address plus that offset. Without the file, the module is
+/// described by a single section covering the whole linker file.
 ///
 void FreeBSDMonitor::handleKldLoad(S2EExecutionState *state, const S2E_FREEBSDMON_COMMAND &cmd) {
     std::string path, name;
@@ -597,15 +600,38 @@ void FreeBSDMonitor::handleKldLoad(S2EExecutionState *state, const S2E_FREEBSDMO
                           << " size=" << hexval(cmd.KldLoad.size) << "\n";
 
     std::vector<SectionDescriptor> sections;
-    SectionDescriptor sd;
-    sd.readable = true;
-    sd.writable = true;
-    sd.executable = true;
-    sd.size = cmd.KldLoad.size;
-    sd.nativeLoadBase = cmd.KldLoad.address;
-    sd.runtimeLoadBase = cmd.KldLoad.address;
-    sd.name = name;
-    sections.push_back(sd);
+
+    auto exe = m_vmi->getFromDisk(path, name, false);
+    if (exe) {
+        for (const auto &s : exe->getSections()) {
+            if (!s.loadable) {
+                continue;
+            }
+
+            SectionDescriptor sd;
+            sd.readable = s.readable;
+            sd.writable = s.writable;
+            sd.executable = s.executable;
+            sd.size = s.virtualSize;
+            sd.nativeLoadBase = s.start;
+            sd.runtimeLoadBase = cmd.KldLoad.address + s.start;
+            sd.name = s.name;
+            sections.push_back(sd);
+        }
+    }
+
+    if (sections.empty()) {
+        getWarningsStream(state) << "kld " << name << " not found in the guestfs, using a single section\n";
+        SectionDescriptor sd;
+        sd.readable = true;
+        sd.writable = true;
+        sd.executable = true;
+        sd.size = cmd.KldLoad.size;
+        sd.nativeLoadBase = 0;
+        sd.runtimeLoadBase = cmd.KldLoad.address;
+        sd.name = name;
+        sections.push_back(sd);
+    }
 
     auto module = ModuleDescriptor::get(path, name, 0, 0, 0, sections);
     m_klds[cmd.KldLoad.address] = module;

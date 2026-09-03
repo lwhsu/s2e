@@ -50,6 +50,8 @@
 #include <s2e/s2e.h>
 #include <s2e/monitors/commands/freebsd.h>
 
+#include "s2e_mod.h"
+
 static MALLOC_DEFINE(M_S2E, "s2e", "S2E guest monitor");
 
 static eventhandler_tag s2e_exec_tag;
@@ -312,10 +314,13 @@ static int s2e_modevent(module_t mod, int type, void *data) {
             s2e_kld_unload_tag = EVENTHANDLER_REGISTER(kld_unload, s2e_kld_unload, NULL, EVENTHANDLER_PRI_ANY);
             s2e_shutdown_tag = EVENTHANDLER_REGISTER(shutdown_pre_sync, s2e_shutdown_pre_sync, NULL, SHUTDOWN_PRI_FIRST);
             printf("s2e: monitor loaded\n");
+
+            s2e_faultinj_init();
             return 0;
 
         case MOD_UNLOAD:
             if (s2e_exec_tag != NULL) {
+                s2e_faultinj_fini();
                 EVENTHANDLER_DEREGISTER(process_exec, s2e_exec_tag);
                 EVENTHANDLER_DEREGISTER(process_exit, s2e_exit_tag);
                 EVENTHANDLER_DEREGISTER(thread_dtor, s2e_thread_dtor_tag);

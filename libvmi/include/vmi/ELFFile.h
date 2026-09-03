@@ -24,6 +24,7 @@
 #define VMI_ELF_FILE_H
 
 extern "C" {
+#include <gelf.h>
 #include <libelf.h>
 }
 
@@ -265,6 +266,61 @@ template <typename EhdrT, typename PhdrT> bool ELFFile<EhdrT, PhdrT>::initialize
 
         m_sections.push_back(sd);
         m_phdrs.push_back(*phdr);
+    }
+
+    // Relocatable objects (e.g., FreeBSD kernel modules) have no program headers.
+    // Describe them the way the FreeBSD kernel linker lays them out: every allocated
+    // section is placed in order in one contiguous block, each aligned to its
+    // sh_addralign, so a section's "address" is its offset in that block.
+    if (numPhdrs == 0 && ehdr->e_type == ET_REL) {
+        size_t shstrndx = 0;
+        elf_getshdrstrndx(m_elf, &shstrndx);
+
+        uint64_t offset = 0;
+        Elf_Scn *scn = nullptr;
+        while ((scn = elf_nextscn(m_elf, scn)) != nullptr) {
+            GElf_Shdr shdr;
+            if (!gelf_getshdr(scn, &shdr) || shdr.sh_size == 0) {
+                continue;
+            }
+
+            switch (shdr.sh_type) {
+                case SHT_PROGBITS:
+                case SHT_NOBITS:
+                case SHT_INIT_ARRAY:
+                case SHT_FINI_ARRAY:
+                case SHT_X86_64_UNWIND:
+                    break;
+                default:
+                    continue;
+            }
+
+            if (!(shdr.sh_flags & SHF_ALLOC)) {
+                continue;
+            }
+
+            if (shdr.sh_addralign > 1) {
+                uint64_t mask = shdr.sh_addralign - 1;
+                offset = (offset + mask) & ~mask;
+            }
+
+            SectionDescriptor sd;
+            const char *name = elf_strptr(m_elf, shstrndx, shdr.sh_name);
+            sd.name = name ? name : "";
+            sd.loadable = true;
+            sd.readable = true;
+            sd.writable = shdr.sh_flags & SHF_WRITE;
+            sd.executable = shdr.sh_flags & SHF_EXECINSTR;
+            sd.start = offset;
+            sd.physStart = offset;
+            sd.size = shdr.sh_type == SHT_NOBITS ? 0 : shdr.sh_size;
+            sd.virtualSize = shdr.sh_size;
+            m_sections.push_back(sd);
+
+            offset += shdr.sh_size;
+        }
+
+        imageSize = offset;
     }
 
     m_imageSize = imageSize;
