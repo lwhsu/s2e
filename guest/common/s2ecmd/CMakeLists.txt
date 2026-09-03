@@ -22,8 +22,9 @@
 # SOFTWARE.
 
 add_executable(s2ecmd s2ecmd.cpp symfile.cpp s2eget.cpp s2eput.cpp common.cpp)
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  # FreeBSD has no separate libatomic, the compiler runtime provides the atomics
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+  # FreeBSD has no separate libatomic, the compiler runtime provides the atomics.
+  # Linux and the mingw builds need it.
   target_link_libraries(s2ecmd atomic)
 endif()
 
