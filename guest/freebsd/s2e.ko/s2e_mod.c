@@ -290,6 +290,14 @@ static void s2e_send_init(void) {
     cmd.Init.proc_vmspace = offsetof(struct proc, p_vmspace);
     cmd.Init.vmspace_maxsaddr = offsetof(struct vmspace, vm_maxsaddr);
     cmd.Init.vmspace_stacktop = offsetof(struct vmspace, vm_stacktop);
+    cmd.Init.vmspace_map = offsetof(struct vmspace, vm_map);
+    cmd.Init.map_header = offsetof(struct vm_map, header);
+    cmd.Init.map_entry_left = offsetof(struct vm_map_entry, left);
+    cmd.Init.map_entry_right = offsetof(struct vm_map_entry, right);
+    cmd.Init.map_entry_start = offsetof(struct vm_map_entry, start);
+    cmd.Init.map_entry_end = offsetof(struct vm_map_entry, end);
+    cmd.Init.map_entry_eflags = offsetof(struct vm_map_entry, eflags);
+    cmd.Init.map_entry_guard = MAP_ENTRY_GUARD;
 
     s2e_send(&cmd);
 }
