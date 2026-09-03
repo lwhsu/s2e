@@ -48,6 +48,7 @@ echo "  --with-s2e-guest-incdir=PATH     Path to S2E guest headers"
 
 LLVM_ROOT=
 DEBUG=n
+ARGCOUNT=0
 
 for opt do
   optarg=`expr "x$opt" : 'x[^=]*=\(.*\)'`

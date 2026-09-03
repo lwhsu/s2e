@@ -25,8 +25,17 @@
 
 # S2E is validated with clang-19. GCC is not supported.
 SYSTEM_CLANG_VERSION?=19
+
+OS:=$(shell uname)
+
+# FreeBSD ports install versioned LLVM binaries without the dash (clang19, llvm-config19).
+ifeq ($(OS),FreeBSD)
+SYSTEM_CLANG_CC?=clang$(SYSTEM_CLANG_VERSION)
+SYSTEM_CLANG_CXX?=clang++$(SYSTEM_CLANG_VERSION)
+else
 SYSTEM_CLANG_CC?=clang-$(SYSTEM_CLANG_VERSION)
 SYSTEM_CLANG_CXX?=clang++-$(SYSTEM_CLANG_VERSION)
+endif
 
 # Verify compilers are available
 ifeq ($(shell which $(SYSTEM_CLANG_CC)),)
@@ -48,19 +57,29 @@ endef
 #############
 
 # Set the number of parallel build jobs
-OS:=$(shell uname)
-ifeq ($(PARALLEL), no)
-JOBS:=1
-else ifeq ($(OS),Darwin)
+MAKE_CMD:=make
+ifeq ($(OS),Darwin)
 JOBS:=$(patsubst hw.ncpu:%,%,$(shell sysctl hw.ncpu))
 SED:=gsed
 PLATFORM:=darwin
 else ifeq ($(OS),Linux)
 JOBS:=$(shell grep -c ^processor /proc/cpuinfo)
 PLATFORM:=linux
+else ifeq ($(OS),FreeBSD)
+JOBS:=$(shell sysctl -n hw.ncpu)
+PLATFORM:=freebsd
+# The system make is BSD make; the sub-builds need GNU make.
+MAKE_CMD:=gmake
+# Third-party packages live under /usr/local, which the toolchain does not search by default.
+LOCALBASE?=/usr/local
+export LDFLAGS+=-L$(LOCALBASE)/lib
 endif
 
-MAKE:=make -j$(JOBS)
+ifeq ($(PARALLEL), no)
+JOBS:=1
+endif
+
+MAKE:=$(MAKE_CMD) -j$(JOBS)
 
 FIND_SOURCE=$(shell find $(1) -name '*.cpp' -o -name '*.h' -o -name '*.c')
 FIND_CONFIG_SOURCE=$(shell find $(1) -name 'configure' -o -name 'CMakeLists.txt' -o -name '*.in')
@@ -76,6 +95,11 @@ BUILD_ARCH?=native
 
 CFLAGS_ARCH:=-march=$(BUILD_ARCH)
 CXXFLAGS_ARCH:=-march=$(BUILD_ARCH)
+
+ifeq ($(PLATFORM),freebsd)
+CFLAGS_ARCH+=-I$(LOCALBASE)/include
+CXXFLAGS_ARCH+=-I$(LOCALBASE)/include
+endif
 
 CXXFLAGS_DEBUG:=$(CXXFLAGS_ARCH) -fno-limit-debug-info
 CXXFLAGS_RELEASE:=$(CXXFLAGS_ARCH)
