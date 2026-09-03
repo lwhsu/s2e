@@ -19,7 +19,8 @@ if [ $COUNT -ne 5 ]; then
     exit 1
 fi
 
-check_coverage {{project_name}} 90
+# The mapping failure path and MOD_UNLOAD are not reachable: 15 of 19 lines
+check_coverage {{project_name}} 75
 
 s2e forkprofile {{ project_name }} > $S2E_LAST/forkprofile.txt
 grep -q -i s2etest.c $S2E_LAST/forkprofile.txt
