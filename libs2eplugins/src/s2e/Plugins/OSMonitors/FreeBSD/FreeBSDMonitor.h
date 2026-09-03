@@ -114,6 +114,9 @@ private:
     bool getCurrentThread(S2EExecutionState *state, uint64_t &thread) const;
     bool getCurrentProc(S2EExecutionState *state, uint64_t &proc) const;
 
+    void onPrivilegeChange(S2EExecutionState *state, unsigned previous, unsigned current);
+    void checkTaskSwitch(S2EExecutionState *state);
+
     bool loadSections(S2EExecutionState *state, uint64_t phdr, uint64_t phdrSize,
                       std::vector<SectionDescriptor> &sections);
 
