@@ -78,8 +78,13 @@ int S2EDeviceState::putBuffer(const uint8_t *buf, int64_t pos, int size) {
 }
 
 int S2EDeviceState::getBuffer(uint8_t *buf, int64_t pos, int size) {
+    // The reader keeps calling until it gets 0 bytes, so pos == size() is a normal end-of-buffer
+    // request. Do not index the vector there: hardened C++ libraries (e.g., FreeBSD's libc++) abort.
+    if (pos < 0 || (size_t) pos >= m_stateBuffer.size()) {
+        return 0;
+    }
     int toCopy = pos + size <= m_stateBuffer.size() ? size : m_stateBuffer.size() - pos;
-    memcpy(buf, &m_stateBuffer[pos], toCopy);
+    memcpy(buf, m_stateBuffer.data() + pos, toCopy);
     return toCopy;
 }
 
