@@ -59,14 +59,24 @@ if(WITH_TARGET MATCHES "s2e")
     set(LIBS ${LIBS} memcached
                      lua
                      ${LLVM_LIBS}
-                     z3.a
-                     gomp
+                     ${Z3_DIR}/libz3.a
                      ${PROTOBUF_LIBRARIES})
     set(LIBS ${LIBS} boost_serialization
                      boost_regex)
 endif()
 
-set(LIBS ${LIBS} ${LIBCOROUTINE_LIBRARY_DIR}/libcoroutine.a ${FSIGCXX_LIBRARY_DIR}/libfsigc++.a ${LIBQ_LIBRARY_DIR}/libq.a ${CAPSTONE_LIBRARIES} pthread glib-2.0 bsd dl)
+set(LIBS ${LIBS} ${LIBCOROUTINE_LIBRARY_DIR}/libcoroutine.a ${FSIGCXX_LIBRARY_DIR}/libfsigc++.a ${LIBQ_LIBRARY_DIR}/libq.a ${CAPSTONE_LIBRARIES} pthread glib-2.0 dl)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # libbsd provides the BSD string functions on glibc; libgomp is needed by the binary Z3 release.
+    set(LIBS ${LIBS} bsd)
+    if(WITH_TARGET MATCHES "s2e")
+        set(LIBS ${LIBS} gomp)
+    endif()
+else()
+    # backtrace() lives in libexecinfo, isfinite() in libm
+    set(LIBS ${LIBS} execinfo m)
+endif()
 
 target_link_libraries(tests2e PUBLIC ${LIBCOROUTINE_LIBRARY_DIR}/libcoroutine.a pthread glib-2.0)
 target_link_libraries(s2e ${LIBS})
@@ -87,4 +97,9 @@ set(COMMON_FLAGS "${COMMON_FLAGS} -Wall -fPIC -fno-strict-aliasing -fexceptions"
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WERROR_FLAGS} ${COMMON_FLAGS} -std=c++20")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WERROR_FLAGS} ${COMMON_FLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--as-needed -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/mapfile")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--as-needed -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/mapfile")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # The mapfile lists both the glibc and the BSD names of the hooked functions; lld rejects
+    # undefined symbols in version scripts by default.
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--undefined-version")
+endif()

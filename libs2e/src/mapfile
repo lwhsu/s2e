@@ -1,6 +1,8 @@
 {
     global:
+         open;
          open64;
+         close;
          close64;
          write;
          sigaction;

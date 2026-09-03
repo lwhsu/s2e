@@ -62,10 +62,16 @@ s2e::kvm::FileDescriptorManagerPtr g_fdm = std::make_shared<s2e::kvm::FileDescri
 extern "C" {
 
 open_t g_original_open;
+#ifdef __linux__
+// glibc redirects open() to open64() when _FILE_OFFSET_BITS=64
 int open64(const char *pathname, int flags, ...) {
+#else
+int open(const char *pathname, int flags, ...) {
+#endif
     va_list list;
     va_start(list, flags);
-    mode_t mode = va_arg(list, mode_t);
+    // mode_t may be narrower than int (e.g., unsigned short on FreeBSD), so it is promoted to int
+    mode_t mode = (mode_t) va_arg(list, int);
     va_end(list);
 
     if (!strcmp(pathname, "/dev/kvm")) {
@@ -99,7 +105,11 @@ int open64(const char *pathname, int flags, ...) {
 }
 
 static close_t s_original_close;
+#ifdef __linux__
 int close64(int fd) {
+#else
+int close(int fd) {
+#endif
     if (!s_exited && g_fdm && g_fdm->close(fd)) {
         return 0;
     } else {
@@ -125,7 +135,15 @@ ssize_t write(int fd, const void *buf, size_t count) {
 }
 
 ioctl_t g_original_ioctl;
+#ifdef __linux__
 int ioctl(int fd, int request, uint64_t arg1) {
+#else
+int ioctl(int fd, unsigned long request, ...) {
+    va_list ap;
+    va_start(ap, request);
+    uint64_t arg1 = va_arg(ap, uint64_t);
+    va_end(ap);
+#endif
     if (!s_exited && g_fdm) {
         auto ifp = g_fdm->get(fd);
         if (ifp) {
@@ -184,6 +202,7 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
 }
 
 mmap64_t g_original_mmap64;
+#ifdef __linux__
 void *mmap64(void *addr, size_t len, int prot, int flags, int fd, off64_t offset) {
     if (g_fdm) {
         auto ifp = g_fdm->get(fd);
@@ -196,6 +215,7 @@ void *mmap64(void *addr, size_t len, int prot, int flags, int fd, off64_t offset
     }
     return g_original_mmap64(addr, len, prot, flags, fd, offset);
 }
+#endif
 
 static dup_t s_original_dup;
 int dup(int fd) {
@@ -213,10 +233,12 @@ int dup(int fd) {
 
 static madvise_t s_original_madvise;
 int madvise(void *addr, size_t len, int advice) {
+#ifdef MADV_DONTFORK
     if (advice & MADV_DONTFORK) {
         // We must fork all memory for multi-core mode
         advice &= ~MADV_DONTFORK;
     }
+#endif
 
     if (!advice) {
         return 0;
@@ -296,12 +318,22 @@ void libs2e_init_syscalls(void) {
         return;
     }
 
+#ifdef __linux__
+    const char *open_sym = "open64";
+    const char *close_sym = "close64";
+    const char *mmap64_sym = "mmap64";
+#else
+    const char *open_sym = "open";
+    const char *close_sym = "close";
+    const char *mmap64_sym = "mmap";
+#endif
+
     if (!g_original_open) {
-        g_original_open = (open_t) dlsym(RTLD_NEXT, "open64");
+        g_original_open = (open_t) dlsym(RTLD_NEXT, open_sym);
     }
 
     if (!s_original_close) {
-        s_original_close = (close_t) dlsym(RTLD_NEXT, "close64");
+        s_original_close = (close_t) dlsym(RTLD_NEXT, close_sym);
     }
 
     if (!g_original_ioctl) {
@@ -329,7 +361,7 @@ void libs2e_init_syscalls(void) {
     }
 
     if (!g_original_mmap64) {
-        g_original_mmap64 = (mmap64_t) dlsym(RTLD_NEXT, "mmap64");
+        g_original_mmap64 = (mmap64_t) dlsym(RTLD_NEXT, mmap64_sym);
     }
 
     if (!s_original_madvise) {
@@ -355,6 +387,8 @@ void libs2e_exit(void) {
 // ****************************
 // Overriding __llibc_start_main
 // ****************************
+
+#ifdef __linux__
 
 // The type of __libc_start_main
 typedef int (*T_libc_start_main)(int *(main) (int, char **, char **), int argc, char **ubp_av, void (*init)(void),
@@ -400,4 +434,45 @@ int __libc_start_main(int *(main) (int, char **, char **), int argc, char **ubp_
 
     exit(1); // This is never reached
 }
+
+#else
+
+// ****************************
+// Initialization on BSD hosts
+// ****************************
+
+// There is no __libc_start_main to hook. The run-time linker calls the functions in
+// .init_array with (argc, argv, envp) before main(), which is all that is needed here.
+static void libs2e_init(int argc, char **argv, char **envp) __attribute__((constructor));
+
+static void libs2e_init(int argc, char **argv, char **envp) {
+    libs2e_init_syscalls();
+
+    // Hack when we are called from gdb or through a shell command
+    if (argc > 0 && strstr(argv[0], "bash")) {
+        return;
+    }
+
+    std::atexit(libs2e_exit);
+
+    printf("Starting libs2e...\n");
+
+    // libs2e might spawn other processes (e.g., from plugin code).
+    // This will fail if we preload libs2e.so for these processes,
+    // so we must remove this environment variable.
+    unsetenv("LD_PRELOAD");
+
+    // When libs2e is used with qemu, verify that enable-kvm switch
+    // has been specified.
+    if (argc > 0 && strstr(argv[0], "qemu") && !check_kvm_switch(argc, argv)) {
+        fprintf(stderr, "Please use -enable-kvm switch before starting QEMU\n");
+        exit(-1);
+    }
+
+    if (!init_ram_size(argc, argv)) {
+        exit(-1);
+    }
+}
+
+#endif
 }
