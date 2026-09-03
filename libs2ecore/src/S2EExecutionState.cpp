@@ -180,7 +180,7 @@ void S2EExecutionState::registerRam(uint64_t size, uint64_t hostAddress, bool is
 
         // Make sure that the memory space is reserved and won't be used anymore
         // so that there are no conflicts with klee memory objects.
-        void *newhost = mmap((void *) hostAddress, size, PROT_NONE, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0, 0);
+        void *newhost = mmap((void *) hostAddress, size, PROT_NONE, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
         if (newhost == MAP_FAILED || newhost != (void *) hostAddress) {
             g_s2e->getWarningsStream(nullptr) << "Could not map host RAM\n";
             exit(-1);
