@@ -22,12 +22,43 @@
 #include "exec-all.h"
 #include "exec-ram.h"
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/user.h>
+#include <libutil.h>
+#include <unistd.h>
+#endif
+
 #define DPRINTF(...)
 
 static const unsigned MEM_REGION_MAX_COUNT = 32;
 static MemoryDesc s_regions[MEM_REGION_MAX_COUNT];
 static unsigned s_region_count = 0;
 
+#ifdef __FreeBSD__
+static bool get_memory_access_flags(uint64_t start, uint64_t size, bool *readable, bool *writable) {
+    int count = 0;
+    struct kinfo_vmentry *entries = kinfo_getvmmap(getpid(), &count);
+    if (!entries) {
+        fprintf(stderr, "Could not read the process memory map in %s\n", __FUNCTION__);
+        exit(-1);
+    }
+
+    for (int i = 0; i < count; ++i) {
+        const struct kinfo_vmentry *e = &entries[i];
+        if (start >= e->kve_start && ((start + size) <= e->kve_end)) {
+            *readable = (e->kve_protection & KVME_PROT_READ) != 0;
+            *writable = (e->kve_protection & KVME_PROT_WRITE) != 0;
+            free(entries);
+            return true;
+        }
+    }
+
+    free(entries);
+    fprintf(stderr, "Could not execute %s\n", __FUNCTION__);
+    exit(-1);
+}
+#else
 static bool get_memory_access_flags(uint64_t start, uint64_t size, bool *readable, bool *writable) {
     bool ret = false;
     FILE *fp = fopen("/proc/self/maps", "r");
@@ -61,6 +92,7 @@ end:
     fclose(fp);
     return ret;
 }
+#endif
 
 const MemoryDesc *mem_desc_register(struct kvm_userspace_memory_region *kr) {
     if (!kr->memory_size) {

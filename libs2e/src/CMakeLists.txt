@@ -74,8 +74,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(LIBS ${LIBS} gomp)
     endif()
 else()
-    # backtrace() lives in libexecinfo, isfinite() in libm
-    set(LIBS ${LIBS} execinfo m)
+    # backtrace() lives in libexecinfo, isfinite() in libm, kinfo_getvmmap() in libutil
+    set(LIBS ${LIBS} execinfo m util)
 endif()
 
 target_link_libraries(tests2e PUBLIC ${LIBCOROUTINE_LIBRARY_DIR}/libcoroutine.a pthread glib-2.0)
