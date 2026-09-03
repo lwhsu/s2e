@@ -39,12 +39,18 @@ write_basic_package_version_file(${CMAKE_VERSION_FILE}
 include(FindPkgConfig)
 pkg_check_modules(GLIB2 glib-2.0)
 
-set(Protobuf_USE_STATIC_LIBS ON)
+# Debian/Ubuntu ship a static libprotobuf that links without its abseil dependencies.
+# Other systems (e.g., FreeBSD) only ship the shared library, whose dependencies are then resolved automatically.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(Protobuf_USE_STATIC_LIBS ON)
+endif()
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
 
-# Old CMake does not support static libraries, so we have to patch the library manually
-string(REPLACE .so .a PROTOBUF_LIBRARIES "${PROTOBUF_LIBRARIES}")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Old CMake does not support static libraries, so we have to patch the library manually
+    string(REPLACE .so .a PROTOBUF_LIBRARIES "${PROTOBUF_LIBRARIES}")
+endif()
 
 if (POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
