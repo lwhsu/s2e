@@ -47,9 +47,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <machine/ansi.h>
 #endif
 
-#if defined(__FreeBSD__)
-#include <sys/_types.h>
-#endif
+/* The BIOS is built with -nostdinc: never pull in the FreeBSD <sys/_types.h> here,
+   the type definitions below are self-contained. */
 
 #if defined(__NetBSD__)
 #if !defined(_SIZE_T_) && !defined(_BSD_SIZE_T_)
