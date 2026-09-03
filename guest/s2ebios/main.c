@@ -58,6 +58,30 @@ void main(void) {
     // test_fork();
     // test_maze();
 
+    /* Tests selected at build time with make TEST=<name> (see the Makefile) */
+#ifdef S2EBIOS_TEST_RANGE
+    test_range1();
+#endif
+#ifdef S2EBIOS_TEST_CONSTRAINTS
+    test_constraints1();
+#endif
+#ifdef S2EBIOS_TEST_SELFMOD
+    test_selfmod1();
+#endif
+#ifdef S2EBIOS_TEST_MAZE
+    test_maze();
+    s2e_kill_state(0, "done");
+#endif
+#ifdef S2EBIOS_TEST_SYMBHW_MMIO
+    test_symbhw_mmio();
+#endif
+#ifdef S2EBIOS_TEST_SYMBHW_IO_PORTS
+    test_symbhw_io_ports();
+#endif
+#ifdef S2EBIOS_TEST_SYMBHW_PCI_BARS
+    test_symbhw_pci_bars();
+#endif
+
     printf("Initing memory manager\n");
     vmm_init();
 
