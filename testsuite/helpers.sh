@@ -16,6 +16,8 @@ get_platform() {
         echo windows
     elif echo $TARGET_NAME | grep -q linux; then
         echo linux
+    elif echo $TARGET_NAME | grep -q freebsd; then
+        echo freebsd
     else
         echo "Invalid platform encoded in $TARGET_NAME"
         exit 1

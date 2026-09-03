@@ -5,6 +5,7 @@ test:
         - ["@@"]
 
     targets:
+        - freebsd64-basic9-symaddr
         - windows64-basic9-symaddr.exe
         - windows32-basic9-symaddr.exe
         - linux32-basic9-symaddr

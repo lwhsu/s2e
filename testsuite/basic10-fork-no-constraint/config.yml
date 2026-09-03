@@ -2,6 +2,7 @@ test:
     description: "Check that fork `count` times works properly"
 
     targets:
+        - freebsd64-basic10-fork-no-constraint
         - windows64-basic10-fork-no-constraint.exe
         - windows32-basic10-fork-no-constraint.exe
         - linux32-basic10-fork-no-constraint

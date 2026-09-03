@@ -24,6 +24,7 @@ SOURCE=main.c
 GCC_LINUX=gcc
 GCC_WINDOWS64=x86_64-w64-mingw32-gcc
 GCC_WINDOWS32=i686-w64-mingw32-gcc
+CC_FREEBSD=cc
 
 CFLAGS:=$(CFLAGS) -O0 -g -Wall -std=c99
 
@@ -39,7 +40,15 @@ windows64-$(TARGET).exe: $(SOURCE)
 windows32-$(TARGET).exe: $(SOURCE)
 	$(GCC_WINDOWS32) -m32 $(CFLAGS) -o "$@" "$^"
 
+freebsd64-$(TARGET): $(SOURCE)
+	$(CC_FREEBSD) -m64 $(CFLAGS) -o "$@" "$^"
+
+# Only the targets the host toolchain can build
+ifeq ($(shell uname -s),FreeBSD)
+TARGETS=freebsd64-$(TARGET)
+else
 TARGETS=linux64-$(TARGET) linux32-$(TARGET) windows64-$(TARGET).exe windows32-$(TARGET).exe
+endif
 
 all: $(TARGETS)
 clean:
