@@ -51,6 +51,9 @@ ifeq ($(PLATFORM),freebsd)
 # and the Windows tools need mingw, neither is available by default.
 GUEST_TOOLCHAIN_PREFIX=Toolchain-freebsd
 WINDRV_DEPS=
+# Kernel sources used to build the s2e.ko guest module
+S2E_FREEBSD_SYSDIR?=/usr/src/sys
+GUEST_TOOLS_EXTRA_CMAKE_ARGS=-DS2E_FREEBSD_SYSDIR=$(S2E_FREEBSD_SYSDIR)
 install: guest-tools-install
 install-debug: guest-tools-install
 guest-tools: stamps/guest-tools64-make
@@ -80,6 +83,7 @@ stamps/guest-tools64-configure: CONFIGURE_COMMAND = cmake                       
                                                     -DCMAKE_CXX_COMPILER=$(SYSTEM_CLANG_CXX)                                    \
                                                     -DCMAKE_INSTALL_PREFIX=$(S2E_PREFIX)/bin/guest-tools64                      \
                                                     -DCMAKE_TOOLCHAIN_FILE=$(S2E_SRC)/guest/cmake/$(GUEST_TOOLCHAIN_PREFIX)-x86_64.cmake  \
+                                                    $(GUEST_TOOLS_EXTRA_CMAKE_ARGS) \
                                                     $(S2E_SRC)/guest
 
 stamps/guest-tools32-win-configure: CONFIGURE_COMMAND = cmake                                                                       \
