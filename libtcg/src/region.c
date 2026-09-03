@@ -23,7 +23,9 @@
  */
 
 #include <assert.h>
+#ifdef __linux__
 #include <bsd/string.h>
+#endif
 #include <glib.h>
 #include <inttypes.h>
 #include <memory.h>
@@ -733,11 +735,13 @@ void tcg_region_init(size_t tb_size, int splitwx, unsigned max_threads) {
     have_prot = alloc_code_gen_buffer(tb_size, splitwx, &error_fatal);
     assert(have_prot >= 0);
 
+#ifdef MADV_HUGEPAGE
     /* Request large pages for the buffer and the splitwx.  */
     qemu_madvise(region.start_aligned, region.total_size, MADV_HUGEPAGE);
     if (tcg_splitwx_diff) {
         qemu_madvise(region.start_aligned + tcg_splitwx_diff, region.total_size, MADV_HUGEPAGE);
     }
+#endif
 
     /*
      * Make region_size a multiple of page_size, using aligned as the start.

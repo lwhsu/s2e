@@ -23,7 +23,9 @@
  */
 
 #include <assert.h>
+#ifdef __linux__
 #include <bsd/string.h>
+#endif
 // #include <elf.h>
 #include <glib.h>
 #include <inttypes.h>

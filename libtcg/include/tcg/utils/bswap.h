@@ -32,6 +32,10 @@ extern "C" {
 #include <machine/bswap.h>
 #include <sys/endian.h>
 #include <sys/types.h>
+#elif defined(__FreeBSD__)
+/* FreeBSD provides bswap16/32/64 in <sys/endian.h> */
+#include <sys/endian.h>
+#include <sys/types.h>
 #else
 
 #include <byteswap.h>
