@@ -47,6 +47,9 @@ add_library(
     s2e/Plugins/OSMonitors/Linux/BaseLinuxMonitor.cpp
     s2e/Plugins/OSMonitors/Linux/LinuxMonitor.cpp
     s2e/Plugins/OSMonitors/Linux/DecreeMonitor.cpp
+
+    # FreeBSD guests support
+    s2e/Plugins/OSMonitors/FreeBSD/FreeBSDMonitor.cpp
     s2e/Plugins/OSMonitors/Raw/RawMonitor.cpp
 
     # Guest support

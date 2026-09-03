@@ -30,6 +30,13 @@
 #ifndef S2E_CUSTOM_INSTRUCTIONS_H
 #define S2E_CUSTOM_INSTRUCTIONS_H
 
+#if defined(__FreeBSD__) && defined(_KERNEL)
+/* FreeBSD kernel module: only vsnprintf() and va_list are needed */
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/stdarg.h>
+#include <sys/stdint.h>
+#else
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -38,6 +45,7 @@
 #include <linux/types.h>
 #else
 #include <inttypes.h>
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -104,7 +112,7 @@ static inline void __s2e_touch_string(volatile const char *string) {
 static inline void __s2e_touch_buffer(volatile const void *buffer, unsigned size) {
     unsigned i;
     unsigned t __attribute__((unused));
-    volatile char *b = (volatile char *) buffer;
+    volatile const char *b = (volatile const char *) buffer;
     for (i = 0; i < size; ++i) {
 	t = *b;
 	++b;

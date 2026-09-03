@@ -63,6 +63,8 @@ add_subdirectory(common)
 # Only build for Linux
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   add_subdirectory(linux)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+  add_subdirectory(freebsd)
 endif()
 
 # The S2E BIOS is a bare-metal test harness that only needs nasm and a host toolchain
