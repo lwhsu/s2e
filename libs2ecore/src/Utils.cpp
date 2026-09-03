@@ -30,6 +30,7 @@
 #include <fstream>
 
 #include <s2e/Utils.h>
+#include <s2e/s2e_log.h>
 
 // stacktrace.h (c) 2008, Timo Bingmann from http://idlebox.net/
 // published under the WTFPL v2.0
