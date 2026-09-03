@@ -1,0 +1,11 @@
+test:
+    description: "FreeBSD stable15: e1000 (if_em) driver attach under symbolic hardware and fault injection"
+
+    targets:
+        - freebsd64-if_em.ko
+
+    target-images:
+        - freebsd-stable15-x86_64
+
+    build-options:
+        post-project-generation-script: fix-config.sh
