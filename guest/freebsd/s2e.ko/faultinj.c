@@ -123,7 +123,14 @@ static void *s2e_hook_uma_zalloc_arg(uma_zone_t zone, void *arg, int flags) {
     return uma_zalloc_arg(zone, arg, flags);
 }
 
-static struct resource *s2e_hook_bus_alloc_resource(device_t dev, int type, int *rid, rman_res_t start,
+/* 16.0-CURRENT passes the resource id by value (__FreeBSD_version 1600005, commit 575639548c). */
+#if __FreeBSD_version >= 1600005
+typedef int s2e_rid_t;
+#else
+typedef int *s2e_rid_t;
+#endif
+
+static struct resource *s2e_hook_bus_alloc_resource(device_t dev, int type, s2e_rid_t rid, rman_res_t start,
                                                     rman_res_t end, rman_res_t count, u_int flags) {
     if (s2e_faultinj_decide("bus_alloc_resource", CALLSITE)) {
         return NULL;
