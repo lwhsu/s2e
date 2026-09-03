@@ -42,7 +42,7 @@ windows32-$(TARGET).exe: $(SOURCE)
 	$(GCC_WINDOWS32) -m32 $(CFLAGS) -o "$@" "$^" $(LDFLAGS)
 
 freebsd64-$(TARGET): $(SOURCE)
-	$(CC_FREEBSD) -m64 $(CFLAGS) -o "$@" "$^"
+	$(CC_FREEBSD) -m64 $(CFLAGS) -o "$@" "$^" $(LDFLAGS)
 
 # Only the targets the host toolchain can build
 ifeq ($(shell uname -s),FreeBSD)

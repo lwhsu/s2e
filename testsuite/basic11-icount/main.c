@@ -51,13 +51,16 @@ pid_t our_gettid(void) {
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef __FreeBSD__
+#include <sys/thr.h>
+#endif
 
 typedef pthread_t thread_t;
 
 thread_t our_create_thread(void *fn) {
     pthread_t id;
-    if (pthread_create(&id, NULL, fn, NULL) < 0) {
-        return -1;
+    if (pthread_create(&id, NULL, fn, NULL) != 0) {
+        return (thread_t) 0;
     }
 
     return id;
@@ -69,7 +72,13 @@ void our_thread_join(thread_t handle) {
 }
 
 pid_t our_gettid(void) {
+#ifdef __FreeBSD__
+    long tid;
+    thr_self(&tid);
+    return (pid_t) tid;
+#else
     return syscall(SYS_gettid);
+#endif
 }
 #endif
 
