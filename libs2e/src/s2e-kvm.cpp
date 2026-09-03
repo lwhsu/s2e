@@ -282,6 +282,14 @@ void S2EKVM::init(void) {
     s2e_create_initial_state();
 #endif
 
+    // Start the virtual clock. The symbolic execution engine only toggles it
+    // around state forks and switches, so without this call vm_clock never
+    // advances in a single-path run (nor in the non-symbolic builds) and the
+    // emulated local APIC timer never counts. Linux guests silently fall back
+    // to the HPET or PIT; FreeBSD guests panic with a divide fault while
+    // calibrating the timer.
+    cpu_enable_ticks();
+
     atexit(cleanup);
 }
 
