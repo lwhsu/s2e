@@ -21,6 +21,7 @@
 ///
 
 #include <s2e/ConfigFile.h>
+#include <s2e/FastReg.h>
 #include <s2e/S2E.h>
 #include <s2e/S2EExecutor.h>
 #include <s2e/Utils.h>
@@ -108,8 +109,7 @@ bool FreeBSDMonitor::readGuestInt32(S2EExecutionState *state, uint64_t address, 
 }
 
 bool FreeBSDMonitor::isInKernelMode(S2EExecutionState *state) const {
-    uint32_t cs = 0;
-    state->regs()->read(CPU_OFFSET(segs[R_CS].selector), &cs, sizeof(cs), false);
+    uint32_t cs = s2e_read_register_concrete_fast<uint32_t>(CPU_OFFSET(segs[R_CS].selector));
     return (cs & 3) == 0;
 }
 
@@ -124,10 +124,10 @@ bool FreeBSDMonitor::getCurrentThread(S2EExecutionState *state, uint64_t &thread
 
     uint64_t pcpu = 0;
     if (isInKernelMode(state)) {
-        state->regs()->read(CPU_OFFSET(segs[R_GS].base), &pcpu, sizeof(pcpu), false);
+        pcpu = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(segs[R_GS].base));
     } else {
 #ifdef TARGET_X86_64
-        state->regs()->read(CPU_OFFSET(kernelgsbase), &pcpu, sizeof(pcpu), false);
+        pcpu = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(kernelgsbase));
 #else
         // Only 64-bit FreeBSD guests are supported
         return false;
@@ -398,6 +398,21 @@ void FreeBSDMonitor::handleInit(S2EExecutionState *state, const S2E_FREEBSDMON_C
     completeInitialization(state);
 
     loadKernelImage(state);
+
+    {
+        uint64_t gsbase = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(segs[R_GS].base));
+        uint64_t kgsbase = 0;
+#ifdef TARGET_X86_64
+        kgsbase = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(kernelgsbase));
+#endif
+        uint64_t thread = 0, proc = 0;
+        bool okThread = getCurrentThread(state, thread);
+        bool okProc = getCurrentProc(state, proc);
+        getDebugStream(state) << "Registers: cs=" << hexval(s2e_read_register_concrete_fast<uint32_t>(CPU_OFFSET(segs[R_CS].selector)))
+                              << " gsbase=" << hexval(gsbase) << " kernelgsbase=" << hexval(kgsbase)
+                              << " curthread=" << hexval(thread) << (okThread ? "" : " (failed)")
+                              << " proc=" << hexval(proc) << (okProc ? "" : " (failed)") << "\n";
+    }
 
     uint64_t pid = getPid(state), tid = getTid(state);
     getDebugStream(state) << "Current process from pcpu: pid=" << pid << " tid=" << tid

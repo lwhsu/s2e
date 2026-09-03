@@ -89,6 +89,13 @@ static void s2e_report_main_module(struct image_params *imgp, const char *path) 
         return;
     }
 
+    // The process_exec handlers run from exec_new_vmspace(), before the segments are loaded. With ASLR the
+    // load base of a PIE is not known yet (ET_DYN_ADDR_RAND sentinel), so the module cannot be described.
+    if (imgp->et_dyn_addr == 1) {
+        printf("s2e: %s uses a randomized load base, not reporting the module (disable kern.elf64.aslr)\n", path);
+        return;
+    }
+
     if (ehdr->e_phentsize != sizeof(Elf_Phdr) ||
         ehdr->e_phoff + (size_t) ehdr->e_phnum * sizeof(Elf_Phdr) > PAGE_SIZE) {
         printf("s2e: program headers of %s are not in the first page, not reporting the module\n", path);
@@ -144,7 +151,8 @@ static void s2e_report_main_module(struct image_params *imgp, const char *path) 
 
     s2e_init_command(&cmd, FREEBSD_MODULE_LOAD);
     cmd.ModuleLoad.module_path = (uintptr_t) path;
-    cmd.ModuleLoad.entry_point = imgp->entry_addr;
+    // imgp->entry_addr is not set yet at this point
+    cmd.ModuleLoad.entry_point = imgp->et_dyn_addr + ehdr->e_entry;
     cmd.ModuleLoad.phdr = (uintptr_t) desc;
     cmd.ModuleLoad.phdr_size = loadable * sizeof(*desc);
     s2e_send(&cmd);
