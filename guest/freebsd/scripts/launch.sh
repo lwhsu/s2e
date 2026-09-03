@@ -24,9 +24,8 @@
 # This script is run in a FreeBSD guest. The image build makes the s2e user
 # run it at login on the serial console.
 
-# NOTE: be careful to not disclose magic serial port messages in case
-# the output of this script is redirected to serial port.
-set -v
+# NOTE: the login shell runs on the serial console, so the script must not
+# echo itself (set -v) or the magic strings below would reach QEMU.
 
 SERIAL=/dev/ttyu0
 
