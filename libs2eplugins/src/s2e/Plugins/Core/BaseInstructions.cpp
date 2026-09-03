@@ -484,8 +484,8 @@ void BaseInstructions::printMessage(S2EExecutionState *state, bool isWarning) {
             stream = &getInfoStream(state);
         (*stream) << "Message from guest (" << hexval(address) << "): " << str;
 
-        /* Avoid doubling end of lines */
-        if (str[str.length() - 1] != '\n') {
+        /* Avoid doubling end of lines (an empty message has no last character) */
+        if (str.empty() || str.back() != '\n') {
             *stream << "\n";
         }
     }

@@ -137,7 +137,7 @@ int LuaS2EExecutionState::debug(lua_State *L) {
     std::string str = luaL_checkstring(L, 1);
     char c = 0;
 
-    if (str[str.length() - 1] != '\n') {
+    if (str.empty() || str.back() != '\n') {
         c = '\n';
     }
 
