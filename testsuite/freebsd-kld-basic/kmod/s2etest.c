@@ -25,8 +25,8 @@
 /// drivers under S2E: symbolic port I/O, symbolic MMIO (SymbolicHardware) and
 /// fault injection into kernel API calls (s2e.ko + GuestCodeHooking).
 ///
-/// Expected paths when everything is enabled: 2 (port) x 2 (MMIO) x 2 (malloc
-/// fault, first call site only) = 8.
+/// Expected paths when everything is enabled: 2 (port) x 2 (MMIO) + 1 (the
+/// malloc fault is injected once per call site) = 5.
 ///
 
 #include <sys/param.h>
@@ -44,7 +44,8 @@
 #include <s2e/s2e.h>
 
 #define S2ETEST_PORT 0x1004
-#define S2ETEST_MMIO_PADDR 0xfebf0000UL
+// BAR0 of the e1000 NIC of the S2E images (see pciconf -lb): a real MMIO region
+#define S2ETEST_MMIO_PADDR 0xfebc0000UL
 
 static MALLOC_DEFINE(M_S2ETEST, "s2etest", "S2E kld test");
 

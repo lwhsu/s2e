@@ -14,7 +14,7 @@ grep -q "s2etest: malloc succeeded" $S2E_LAST/debug.txt
 grep -q "injecting fault into malloc" $S2E_LAST/debug.txt
 
 COUNT=$(grep -c "s2etest: done" $S2E_LAST/debug.txt)
-if [ $COUNT -ne 8 ]; then
+if [ $COUNT -ne 5 ]; then
     echo Incorrect number of completed paths: $COUNT
     exit 1
 fi

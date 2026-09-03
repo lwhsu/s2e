@@ -33,14 +33,14 @@ echo "Patching s2e-config.lua..."
 
 cat << LUA >> $PROJECT_DIR/s2e-config.lua
 
--- The test module reads port 0x1004 and the MMIO page at 0xfebf0000
+-- The test module reads port 0x1004 and the first MMIO page of the e1000 NIC (BAR0)
 pluginsConfig.SymbolicHardware = {
     s2etest = {
         ports = {
             {0x1000, 0x10ff},
         },
         mmio = {
-            {0xfebf0000, 0xfebf0fff},
+            {0xfebc0000, 0xfebc0fff},
         },
     },
 }
