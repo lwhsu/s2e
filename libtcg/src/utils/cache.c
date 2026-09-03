@@ -20,12 +20,18 @@
 
 #include <unistd.h>
 
+#if defined(__x86_64__) || defined(__i386__)
+#include <cpuid.h>
+#endif
+
 #include <tcg/utils/cache.h>
 
 int g_icache_linesize = 0;
 int g_dcache_linesize = 0;
 
 static int sys_cache_info(int *isize, int *dsize) {
+#if defined(_SC_LEVEL1_ICACHE_LINESIZE) && defined(_SC_LEVEL1_DCACHE_LINESIZE)
+    // glibc exposes the cache geometry through sysconf()
     int ret = (int) sysconf(_SC_LEVEL1_ICACHE_LINESIZE);
     if (ret > 0) {
         *isize = ret;
@@ -41,6 +47,21 @@ static int sys_cache_info(int *isize, int *dsize) {
     }
 
     return 0;
+#elif defined(__x86_64__) || defined(__i386__)
+    // Other libcs do not; use the CLFLUSH line size reported by CPUID leaf 1 (EBX[15:8], in qwords)
+    unsigned a, b, c, d;
+    if (__get_cpuid(1, &a, &b, &c, &d)) {
+        int linesize = ((b >> 8) & 0xff) * 8;
+        if (linesize > 0) {
+            *isize = linesize;
+            *dsize = linesize;
+            return 0;
+        }
+    }
+    return -1;
+#else
+    return -1;
+#endif
 }
 
 int init_cache_info() {
