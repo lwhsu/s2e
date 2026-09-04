@@ -11,7 +11,7 @@ grep -q "Kernel panic: s2epanic: deliberate panic" $S2E_LAST/warnings.txt
 grep -q "Terminating state.*Kernel panic: s2epanic: deliberate panic" $S2E_LAST/debug.txt
 
 echo === Checking that the guest did not stop in ddb
-if grep -q "^db> \|KDB: enter: panic" serial.txt; then
+if grep -q "^db> \|KDB: enter: panic" "$S2E_LAST/../serial.txt"; then
     echo "The guest entered ddb"
     exit 1
 fi
