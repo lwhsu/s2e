@@ -142,8 +142,10 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
 #if defined(CONFIG_SYMBEX) && defined(CONFIG_SYMBEX_MP)
     // Can't handle symbolic mmio from helpers.
     // The symbolic ranges are physical addresses: the guest may map the device
-    // anywhere in its virtual address space.
-    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
+    // anywhere in its virtual address space. For RAM pages physaddr is a
+    // ram_addr, not a guest physical address, and RAM is never symbolic hardware.
+    if (unlikely(!is_notdirty_ops(ops) && tcg_is_dyngen_addr(retaddr) &&
+                 g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
         g_sqi.exec.switch_to_symbolic(retaddr);
     }
 
@@ -244,8 +246,11 @@ DATA_TYPE glue(glue(io_read_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_p
 
 end:
     // The symbolic hardware ranges are physical addresses. The handler returns
-    // the (possibly symbolic) value of the access.
-    res.res = (DATA_TYPE) tcg_llvm_trace_mmio_access(naddr, res.res, DATA_SIZE, 0);
+    // the (possibly symbolic) value of the access. RAM pages are never symbolic
+    // hardware (and their physaddr is a ram_addr), so they are not traced.
+    if (!is_notdirty_ops(ops)) {
+        res.res = (DATA_TYPE) tcg_llvm_trace_mmio_access(naddr, res.res, DATA_SIZE, 0);
+    }
 
     SE_SET_MEM_IO_VADDR(env, 0, 1);
     return res.res;
@@ -424,7 +429,8 @@ void glue(glue(io_write, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_addr
 
 #if defined(CONFIG_SYMBEX) && defined(CONFIG_SYMBEX_MP)
     // XXX: avoid switch to symbolic mode here, not needed for writes
-    if (unlikely(tcg_is_dyngen_addr(retaddr) && g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
+    if (unlikely(!is_notdirty_ops(ops) && tcg_is_dyngen_addr(retaddr) &&
+                 g_sqi.mem.is_mmio_symbolic(physaddr, DATA_SIZE))) {
         g_sqi.exec.switch_to_symbolic(retaddr);
     }
 
@@ -504,8 +510,10 @@ void glue(glue(io_write_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
     glue(glue(io_write, SUFFIX), MMUSUFFIX)(env, origaddr, val, addr, retaddr);
 
 end:
-    // The symbolic hardware ranges are physical addresses
-    tcg_llvm_trace_mmio_access(physaddr, val, DATA_SIZE, 1);
+    // The symbolic hardware ranges are physical addresses; RAM pages are not traced
+    if (!is_notdirty_ops(ops)) {
+        tcg_llvm_trace_mmio_access(physaddr, val, DATA_SIZE, 1);
+    }
     SE_SET_MEM_IO_VADDR(env, 0, 1);
 }
 
