@@ -101,14 +101,12 @@ private:
     bool m_guestInitialized = false;
     S2E_FREEBSDMON_COMMAND_INIT m_init;
 
-    /// Loaded kernel modules, by runtime address
-    std::map<uint64_t, ModuleDescriptor> m_klds;
-
     bool verifyCommand(S2EExecutionState *state, uint64_t guestDataPtr, uint64_t guestDataSize,
                        S2E_FREEBSDMON_COMMAND &cmd);
 
     bool readGuestPointer(S2EExecutionState *state, uint64_t address, uint64_t &value) const;
     bool readGuestInt32(S2EExecutionState *state, uint64_t address, uint32_t &value) const;
+    bool readGuestInt16(S2EExecutionState *state, uint64_t address, uint16_t &value) const;
     bool mapEntrySucc(S2EExecutionState *state, uint64_t entry, uint64_t &after);
     bool lookupMapEntry(S2EExecutionState *state, uint64_t map, uint64_t address, uint64_t *base, uint64_t *size);
 
