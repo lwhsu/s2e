@@ -1,0 +1,8 @@
+test:
+    description: "FreeBSD: a segfault of the analyzed process terminates the state and produces a crash test case"
+
+    target_arguments:
+        - ["@@"]
+
+    targets:
+        - freebsd64-segfault
