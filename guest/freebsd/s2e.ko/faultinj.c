@@ -45,6 +45,7 @@
 #include <sys/taskqueue.h>
 
 #include <machine/bus.h>
+#include <x86/include/busdma_impl.h>
 
 #include <vm/vm.h>
 #include <vm/uma.h>
@@ -157,23 +158,31 @@ static int s2e_hook_bus_dma_tag_create(bus_dma_tag_t parent, bus_size_t alignmen
                               maxsegsz, flags, lockfunc, lockfuncarg, dmat);
 }
 
-static int s2e_hook_bus_dmamem_alloc(bus_dma_tag_t dmat, void **vaddr, int flags, bus_dmamap_t *mapp) {
+///
+/// On x86 bus_dmamem_alloc() and bus_dmamap_create() are static inline
+/// wrappers that call the bus_dma_impl methods through the tag, so the hooks
+/// are installed on the methods of the bounce implementation (the one used
+/// without an IOMMU) and catch the indirect calls made from the analyzed
+/// module.
+///
+static int s2e_hook_dma_mem_alloc(bus_dma_tag_t dmat, void **vaddr, int flags, bus_dmamap_t *mapp) {
     if (s2e_faultinj_decide("bus_dmamem_alloc", CALLSITE)) {
         return ENOMEM;
     }
-    return bus_dmamem_alloc(dmat, vaddr, flags, mapp);
+    return bus_dma_bounce_impl.mem_alloc(dmat, vaddr, flags, mapp);
 }
 
-static int s2e_hook_bus_dmamap_create(bus_dma_tag_t dmat, int flags, bus_dmamap_t *mapp) {
+static int s2e_hook_dma_map_create(bus_dma_tag_t dmat, int flags, bus_dmamap_t *mapp) {
     if (s2e_faultinj_decide("bus_dmamap_create", CALLSITE)) {
         return ENOMEM;
     }
-    return bus_dmamap_create(dmat, flags, mapp);
+    return bus_dma_bounce_impl.map_create(dmat, flags, mapp);
 }
 
 static struct taskqueue *s2e_hook_taskqueue_create(const char *name, int mflags, taskqueue_enqueue_fn enqueue,
                                                    void *context) {
-    if (s2e_faultinj_decide("taskqueue_create", CALLSITE)) {
+    // M_WAITOK allocations never fail
+    if ((mflags & M_NOWAIT) && s2e_faultinj_decide("taskqueue_create", CALLSITE)) {
         return NULL;
     }
     return taskqueue_create(name, mflags, enqueue, context);
@@ -185,15 +194,16 @@ struct s2e_hook {
     void *hook;
 };
 
-static const struct s2e_hook s2e_hooks[] = {
+static struct s2e_hook s2e_hooks[] = {
     {"malloc", (void *) malloc, (void *) s2e_hook_malloc},
     {"contigmalloc", (void *) contigmalloc, (void *) s2e_hook_contigmalloc},
     {"uma_zalloc_arg", (void *) uma_zalloc_arg, (void *) s2e_hook_uma_zalloc_arg},
     {"bus_alloc_resource", (void *) bus_alloc_resource, (void *) s2e_hook_bus_alloc_resource},
     {"bus_setup_intr", (void *) bus_setup_intr, (void *) s2e_hook_bus_setup_intr},
     {"bus_dma_tag_create", (void *) bus_dma_tag_create, (void *) s2e_hook_bus_dma_tag_create},
-    {"bus_dmamem_alloc", (void *) bus_dmamem_alloc, (void *) s2e_hook_bus_dmamem_alloc},
-    {"bus_dmamap_create", (void *) bus_dmamap_create, (void *) s2e_hook_bus_dmamap_create},
+    // The originals are the bus_dma_impl methods, filled in at init
+    {"bus_dmamem_alloc", NULL, (void *) s2e_hook_dma_mem_alloc},
+    {"bus_dmamap_create", NULL, (void *) s2e_hook_dma_map_create},
     {"taskqueue_create", (void *) taskqueue_create, (void *) s2e_hook_taskqueue_create},
 };
 
@@ -204,8 +214,17 @@ void s2e_faultinj_init(void) {
         printf("s2e: GuestCodeHooking plugin not loaded, fault injection unavailable\n");
         return;
     }
+    if (!s2e_plugin_loaded("KeyValueStore")) {
+        printf("s2e: KeyValueStore plugin not loaded, fault injection unavailable\n");
+        return;
+    }
 
     for (i = 0; i < nitems(s2e_hooks); ++i) {
+        if (s2e_hooks[i].hook == (void *) s2e_hook_dma_mem_alloc) {
+            s2e_hooks[i].original = (void *) bus_dma_bounce_impl.mem_alloc;
+        } else if (s2e_hooks[i].hook == (void *) s2e_hook_dma_map_create) {
+            s2e_hooks[i].original = (void *) bus_dma_bounce_impl.map_create;
+        }
         s2e_hook_call_site(0, (uintptr_t) s2e_hooks[i].original, (uintptr_t) s2e_hooks[i].hook);
     }
 
