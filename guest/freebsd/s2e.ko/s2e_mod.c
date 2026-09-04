@@ -46,6 +46,8 @@
 #include <vm/vm_param.h>
 
 #include <machine/frame.h>
+#include <machine/pte.h>
+#include <machine/trap.h>
 
 #include <s2e/s2e.h>
 #include <s2e/monitors/commands/freebsd.h>
@@ -184,6 +186,42 @@ static void s2e_process_exec(void *arg, struct proc *p, struct image_params *img
     s2e_report_main_module(imgp, path);
 }
 
+///
+/// Whether the fatal signal came from a hardware trap whose frame is still in
+/// td_frame. A signal delivered through a system call (abort(), kill(2),
+/// thr_kill(2)) leaves the syscall frame there: fast_syscall only sets
+/// tf_err to 2 and keeps the tf_trapno/tf_addr of an earlier trap, so those
+/// fields must not be reported.
+///
+static int s2e_signal_from_trap(int sig, const struct trapframe *tf) {
+    switch (sig) {
+        case SIGSEGV:
+        case SIGBUS:
+            switch (tf->tf_trapno) {
+                case T_PAGEFLT:
+                    // A user page fault always has PGEX_U; the syscall marker (2) does not
+                    return (tf->tf_err & PGEX_U) != 0;
+                case T_PROTFLT:
+                case T_SEGNPFLT:
+                case T_STKFLT:
+                case T_ALIGNFLT:
+                    return tf->tf_err != 2;
+                default:
+                    return 0;
+            }
+        case SIGILL:
+            return tf->tf_trapno == T_PRIVINFLT && tf->tf_err != 2;
+        case SIGFPE:
+            return (tf->tf_trapno == T_DIVIDE || tf->tf_trapno == T_ARITHTRAP || tf->tf_trapno == T_XMMFLT) &&
+                   tf->tf_err != 2;
+        case SIGTRAP:
+            return (tf->tf_trapno == T_BPTFLT || tf->tf_trapno == T_TRCTRAP) && tf->tf_err != 2;
+        default:
+            // SIGABRT, SIGSYS and the rest never come from a trap
+            return 0;
+    }
+}
+
 static void s2e_process_exit(void *arg, struct proc *p) {
     struct S2E_FREEBSDMON_COMMAND cmd;
     struct trapframe *tf = curthread->td_frame;
@@ -191,13 +229,16 @@ static void s2e_process_exit(void *arg, struct proc *p) {
 
     (void) arg;
 
-    if (sig == SIGSEGV || sig == SIGBUS) {
+    if (sig != 0 && !s2e_signal_from_trap(sig, tf)) {
+        // Killed by a signal that was not a hardware trap: only the exit is reported
+    } else if (sig == SIGSEGV || sig == SIGBUS) {
         s2e_init_command(&cmd, FREEBSD_SEGFAULT);
         cmd.SegFault.pc = tf->tf_rip;
-        cmd.SegFault.address = tf->tf_addr;
+        // The fault address is only known for page faults
+        cmd.SegFault.address = tf->tf_trapno == T_PAGEFLT ? tf->tf_addr : 0;
         cmd.SegFault.fault = tf->tf_err;
         s2e_send(&cmd);
-    } else if (sig == SIGILL || sig == SIGFPE || sig == SIGTRAP || sig == SIGSYS || sig == SIGABRT) {
+    } else if (sig == SIGILL || sig == SIGFPE || sig == SIGTRAP) {
         s2e_init_command(&cmd, FREEBSD_TRAP);
         cmd.Trap.pc = tf->tf_rip;
         cmd.Trap.trapnr = tf->tf_trapno;
@@ -211,6 +252,12 @@ static void s2e_process_exit(void *arg, struct proc *p) {
     s2e_send(&cmd);
 }
 
+///
+/// thread_dtor fires when the thread structure is reaped (thread_reap,
+/// thread_free or the parent's wait4), not when the thread exits: the event
+/// may arrive late and while another process is current. The kernel has no
+/// EVENTHANDLER for the exit itself.
+///
 static void s2e_thread_dtor(void *arg, struct thread *td) {
     struct S2E_FREEBSDMON_COMMAND cmd;
 
@@ -267,7 +314,27 @@ static void s2e_shutdown_pre_sync(void *arg, int howto) {
     s2e_send(&cmd);
 }
 
-static void s2e_send_init(void) {
+///
+/// Report a module that was loaded before s2e.ko (kld_load only fires for
+/// later loads). The kernel and s2e.ko itself are skipped.
+///
+static int s2e_report_linker_file(linker_file_t lf, void *ctx) {
+    struct S2E_FREEBSDMON_COMMAND cmd;
+
+    if (lf == linker_kernel_file || lf == (linker_file_t) ctx) {
+        return 0;
+    }
+
+    s2e_init_command(&cmd, FREEBSD_KLD_LOAD);
+    cmd.KldLoad.path = (uintptr_t) (lf->pathname != NULL ? lf->pathname : "");
+    cmd.KldLoad.name = (uintptr_t) (lf->filename != NULL ? lf->filename : "");
+    cmd.KldLoad.address = (uintptr_t) lf->address;
+    cmd.KldLoad.size = lf->size;
+    s2e_send(&cmd);
+    return 0;
+}
+
+static void s2e_send_init(linker_file_t self) {
     struct S2E_FREEBSDMON_COMMAND cmd;
     linker_file_t kf = linker_kernel_file;
 
@@ -298,12 +365,16 @@ static void s2e_send_init(void) {
     cmd.Init.map_entry_end = offsetof(struct vm_map_entry, end);
     cmd.Init.map_entry_eflags = offsetof(struct vm_map_entry, eflags);
     cmd.Init.map_entry_guard = MAP_ENTRY_GUARD;
+    cmd.Init.map_entry_stack_gap = MAP_ENTRY_STACK_GAP;
+    cmd.Init.map_entry_grows_down = MAP_ENTRY_GROWS_DOWN;
 
     s2e_send(&cmd);
+
+    // Modules loaded before this one (preloaded or kldload'ed earlier)
+    linker_file_foreach(s2e_report_linker_file, self);
 }
 
 static int s2e_modevent(module_t mod, int type, void *data) {
-    (void) mod;
     (void) data;
 
     switch (type) {
@@ -313,7 +384,7 @@ static int s2e_modevent(module_t mod, int type, void *data) {
                 return 0;
             }
 
-            s2e_send_init();
+            s2e_send_init(module_file(mod));
 
             s2e_exec_tag = EVENTHANDLER_REGISTER(process_exec, s2e_process_exec, NULL, EVENTHANDLER_PRI_ANY);
             s2e_exit_tag = EVENTHANDLER_REGISTER(process_exit, s2e_process_exit, NULL, EVENTHANDLER_PRI_ANY);
