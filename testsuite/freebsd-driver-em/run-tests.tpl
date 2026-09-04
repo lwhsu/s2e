@@ -5,7 +5,8 @@
 # The attach path of a real driver under symbolic hardware does not terminate
 # on its own in a reasonable time: the run is time-boxed and the checks look
 # at what was explored.
-timeout --foreground --kill-after=5m 20m s2e run -n {{ project_name }} || true
+# Only the timeout (exit 124) is tolerated; any other failure of s2e run is a test failure
+timeout --foreground --kill-after=5m 20m s2e run -n {{ project_name }} || [ $? -eq 124 ]
 
 echo === Checking that the driver was loaded and attached under S2E
 grep -q "kld load freebsd64-if_em.ko" $S2E_LAST/debug.txt
