@@ -33,7 +33,7 @@ extern "C" {
 /// The layout mirrors the Linux monitor commands where it makes sense so that
 /// the host-side code can share helpers (e.g., the program header descriptors).
 
-#define S2E_FREEBSDMON_COMMAND_VERSION 0x202609031900ULL // date +%Y%m%d%H%M
+#define S2E_FREEBSDMON_COMMAND_VERSION 0x202609041000ULL // date +%Y%m%d%H%M
 
 enum S2E_FREEBSDMON_COMMANDS {
     FREEBSD_INIT,
@@ -78,6 +78,8 @@ struct S2E_FREEBSDMON_COMMAND_INIT {
     uint64_t map_entry_end;       // offsetof(struct vm_map_entry, end)
     uint64_t map_entry_eflags;    // offsetof(struct vm_map_entry, eflags)
     uint64_t map_entry_guard;     // MAP_ENTRY_GUARD
+    uint64_t map_entry_stack_gap; // MAP_ENTRY_STACK_GAP
+    uint64_t map_entry_grows_down; // MAP_ENTRY_GROWS_DOWN
 } __attribute__((packed));
 
 struct S2E_FREEBSDMON_COMMAND_MEMORY_MAP {

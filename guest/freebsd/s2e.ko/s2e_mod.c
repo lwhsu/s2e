@@ -385,6 +385,8 @@ static void s2e_send_init(linker_file_t self) {
     cmd.Init.map_entry_end = offsetof(struct vm_map_entry, end);
     cmd.Init.map_entry_eflags = offsetof(struct vm_map_entry, eflags);
     cmd.Init.map_entry_guard = MAP_ENTRY_GUARD;
+    cmd.Init.map_entry_stack_gap = MAP_ENTRY_STACK_GAP;
+    cmd.Init.map_entry_grows_down = MAP_ENTRY_GROWS_DOWN;
 
     s2e_send(&cmd);
 

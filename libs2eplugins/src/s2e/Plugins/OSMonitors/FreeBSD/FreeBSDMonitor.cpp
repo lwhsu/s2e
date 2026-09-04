@@ -51,6 +51,9 @@ class FreeBSDMonitorState : public PluginState {
 public:
     uint64_t m_lastThread = 0;
 
+    /// Loaded kernel modules, by runtime address
+    std::map<uint64_t, ModuleDescriptor> m_klds;
+
     virtual FreeBSDMonitorState *clone() const {
         return new FreeBSDMonitorState(*this);
     }
@@ -155,6 +158,10 @@ bool FreeBSDMonitor::readGuestInt32(S2EExecutionState *state, uint64_t address, 
     return state->mem()->read(address, &value, sizeof(value));
 }
 
+bool FreeBSDMonitor::readGuestInt16(S2EExecutionState *state, uint64_t address, uint16_t &value) const {
+    return state->mem()->read(address, &value, sizeof(value));
+}
+
 ///
 /// Kernel data structures may live in the direct map (0xfffff800...), which is
 /// below VM_MIN_KERNEL_ADDRESS, so pointers are only checked against the
@@ -178,23 +185,26 @@ bool FreeBSDMonitor::getCurrentThread(S2EExecutionState *state, uint64_t &thread
         return false;
     }
 
-    uint64_t pcpu = 0;
-    if (isInKernelMode(state)) {
-        pcpu = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(segs[R_GS].base));
-    } else {
-#ifdef TARGET_X86_64
-        pcpu = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(kernelgsbase));
+#ifndef TARGET_X86_64
+    // Only 64-bit FreeBSD guests are supported
+    return false;
 #else
-        // Only 64-bit FreeBSD guests are supported
-        return false;
-#endif
-    }
+    uint64_t gsbase = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(segs[R_GS].base));
+    uint64_t kgsbase = s2e_read_register_concrete_fast<target_ulong>(CPU_OFFSET(kernelgsbase));
 
+    // swapgs exchanges the two: around the entry and exit of the kernel the
+    // privilege level and the gs base are momentarily out of step, so take
+    // whichever of the two holds a kernel pointer.
+    uint64_t pcpu = isInKernelMode(state) ? gsbase : kgsbase;
     if (!isKernelPointer(pcpu)) {
-        return false;
+        pcpu = isInKernelMode(state) ? kgsbase : gsbase;
+        if (!isKernelPointer(pcpu)) {
+            return false;
+        }
     }
 
     return readGuestPointer(state, pcpu + m_init.pcpu_curthread, thread) && isKernelPointer(thread);
+#endif
 }
 
 bool FreeBSDMonitor::getCurrentProc(S2EExecutionState *state, uint64_t &proc) const {
@@ -232,9 +242,9 @@ uint64_t FreeBSDMonitor::getTid(S2EExecutionState *state) {
 bool FreeBSDMonitor::getCurrentStack(S2EExecutionState *state, uint64_t *base, uint64_t *size) {
     if (isInKernelMode(state)) {
         uint64_t thread, kstack;
-        uint32_t pages;
+        uint16_t pages; // u_short td_kstack_pages, followed by td_kstack_domain
         if (!getCurrentThread(state, thread) || !readGuestPointer(state, thread + m_init.thread_kstack, kstack) ||
-            !readGuestInt32(state, thread + m_init.thread_kstack_pages, pages)) {
+            !readGuestInt16(state, thread + m_init.thread_kstack_pages, pages)) {
             return false;
         }
 
@@ -310,12 +320,36 @@ bool FreeBSDMonitor::lookupMapEntry(S2EExecutionState *state, uint64_t map, uint
         }
 
         if (address >= start && address < end) {
-            if (eflags & m_init.map_entry_guard) {
-                // A stack guard: the stack pointer is below its stack
+            if ((eflags & m_init.map_entry_guard) && !(eflags & m_init.map_entry_stack_gap)) {
+                // A plain guard page
                 return false;
             }
+
+            // A stack that grew is a chain of contiguous GROWS_DOWN entries
+            // (each growth inserts a new entry below); the stack pointer may
+            // also sit in the gap below the stack before the page is touched.
+            // Extend upwards to the top of the chain.
+            uint64_t top = end;
+            if (eflags & (m_init.map_entry_grows_down | m_init.map_entry_stack_gap)) {
+                uint64_t next = entry;
+                for (unsigned j = 0; j < 4096; ++j) {
+                    uint64_t nstart, nend;
+                    uint32_t neflags;
+                    if (!mapEntrySucc(state, next, next) || next == header ||
+                        !readGuestPointer(state, next + m_init.map_entry_start, nstart) ||
+                        !readGuestPointer(state, next + m_init.map_entry_end, nend) ||
+                        !readGuestInt32(state, next + m_init.map_entry_eflags, neflags)) {
+                        break;
+                    }
+                    if (nstart != top || !(neflags & m_init.map_entry_grows_down)) {
+                        break;
+                    }
+                    top = nend;
+                }
+            }
+
             *base = start;
-            *size = end - start;
+            *size = top - start;
             return true;
         }
 
@@ -508,7 +542,14 @@ void FreeBSDMonitor::handleInit(S2EExecutionState *state, const S2E_FREEBSDMON_C
                           << " proc.pid=" << cmd.Init.proc_pid << " proc.comm=" << cmd.Init.proc_comm
                           << " proc.vmspace=" << cmd.Init.proc_vmspace
                           << " vmspace.maxsaddr=" << cmd.Init.vmspace_maxsaddr
-                          << " vmspace.stacktop=" << cmd.Init.vmspace_stacktop << "\n";
+                          << " vmspace.stacktop=" << cmd.Init.vmspace_stacktop
+                          << " vmspace.map=" << cmd.Init.vmspace_map << " map.header=" << cmd.Init.map_header
+                          << " entry.{left,right,start,end,eflags}=" << cmd.Init.map_entry_left << ","
+                          << cmd.Init.map_entry_right << "," << cmd.Init.map_entry_start << ","
+                          << cmd.Init.map_entry_end << "," << cmd.Init.map_entry_eflags
+                          << " flags.{guard,gap,down}=" << hexval(cmd.Init.map_entry_guard) << ","
+                          << hexval(cmd.Init.map_entry_stack_gap) << "," << hexval(cmd.Init.map_entry_grows_down)
+                          << "\n";
 
     m_init = cmd.Init;
     m_kernelStart = cmd.Init.kernel_start;
@@ -665,6 +706,14 @@ void FreeBSDMonitor::handleKldLoad(S2EExecutionState *state, const S2E_FREEBSDMO
     std::vector<SectionDescriptor> sections;
 
     auto exe = m_vmi->getFromDisk(path, name, false);
+    if (exe && exe->getImageSize() != cmd.KldLoad.size) {
+        // The host copy is not the module the guest loaded (different build,
+        // or a preloaded module placed by the loader): its layout must not be used.
+        getWarningsStream(state) << "kld " << name << ": the guest module is " << hexval(cmd.KldLoad.size)
+                                 << " bytes but the host copy lays out as " << hexval(exe->getImageSize())
+                                 << " bytes, ignoring the host copy\n";
+        exe = nullptr;
+    }
     if (exe) {
         for (const auto &s : exe->getSections()) {
             if (!s.loadable) {
@@ -697,15 +746,17 @@ void FreeBSDMonitor::handleKldLoad(S2EExecutionState *state, const S2E_FREEBSDMO
     }
 
     auto module = ModuleDescriptor::get(path, name, 0, 0, 0, sections);
-    m_klds[cmd.KldLoad.address] = module;
+    DECLARE_PLUGINSTATE(FreeBSDMonitorState, state);
+    plgState->m_klds[cmd.KldLoad.address] = module;
 
     onModuleLoad.emit(state, module);
     onKldLoad.emit(state, module);
 }
 
 void FreeBSDMonitor::handleKldUnload(S2EExecutionState *state, const S2E_FREEBSDMON_COMMAND &cmd) {
-    auto it = m_klds.find(cmd.KldUnload.address);
-    if (it == m_klds.end()) {
+    DECLARE_PLUGINSTATE(FreeBSDMonitorState, state);
+    auto it = plgState->m_klds.find(cmd.KldUnload.address);
+    if (it == plgState->m_klds.end()) {
         getWarningsStream(state) << "kld unload of unknown module at " << hexval(cmd.KldUnload.address) << "\n";
         return;
     }
@@ -714,7 +765,7 @@ void FreeBSDMonitor::handleKldUnload(S2EExecutionState *state, const S2E_FREEBSD
 
     onKldUnload.emit(state, it->second);
     onModuleUnload.emit(state, it->second);
-    m_klds.erase(it);
+    plgState->m_klds.erase(it);
 }
 
 } // namespace plugins
