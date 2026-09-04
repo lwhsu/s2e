@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <s2e/s2e.h>
+
 int main(int argc, char **argv) {
     char buf[4] = {0};
 
@@ -49,6 +51,7 @@ int main(int argc, char **argv) {
         *p = buf[1]; // page fault on this path
     }
 
+    s2e_message("no crash");
     printf("no crash\n");
     return 0;
 }
