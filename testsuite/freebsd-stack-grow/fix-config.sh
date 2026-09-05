@@ -1,0 +1,1 @@
+../freebsd-thread-stack/fix-config.sh

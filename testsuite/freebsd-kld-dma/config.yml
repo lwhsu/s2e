@@ -1,0 +1,14 @@
+test:
+    description: "FreeBSD kernel module: fault injection into the bus_dma implementation methods"
+
+    targets:
+        - freebsd64-kld-dma.ko
+
+    # Built against S2E_FREEBSD_SYSDIR (the 15.1 tree); loads on 15.x kernels.
+    target-images:
+        - freebsd-15.1-x86_64
+        - freebsd-15.1-x86_64-s2ekernel
+        - freebsd-stable15-x86_64
+
+    build-options:
+        post-project-generation-script: fix-config.sh

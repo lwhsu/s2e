@@ -1,0 +1,8 @@
+test:
+    description: "FreeBSD: StackMonitor bound of a libthr thread whose stack grew before it was tracked"
+
+    targets:
+        - freebsd64-stack-grow
+
+    build-options:
+        post-project-generation-script: fix-config.sh
