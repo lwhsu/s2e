@@ -1,0 +1,8 @@
+test:
+    description: "FreeBSD: only hardware traps are reported as SEGFAULT/TRAP; signals sent through system calls only produce PROCESS_EXIT"
+
+    target_arguments:
+        - ["@@"]
+
+    targets:
+        - freebsd64-signals
