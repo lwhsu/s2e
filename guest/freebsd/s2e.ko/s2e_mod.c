@@ -187,13 +187,19 @@ static void s2e_process_exec(void *arg, struct proc *p, struct image_params *img
 }
 
 ///
-/// Whether the fatal signal came from a hardware trap whose frame is still in
-/// td_frame. A signal delivered through a system call (abort(), kill(2),
-/// thr_kill(2)) leaves the syscall frame there: fast_syscall only sets
-/// tf_err to 2 and keeps the tf_trapno/tf_addr of an earlier trap, so those
-/// fields must not be reported.
+/// Whether the fatal signal came from a hardware trap. postsig() captures the
+/// siginfo of the signal into td_si right before sigexit(): a signal raised by
+/// trapsignal() carries a small positive si_code (SEGV_MAPERR, ILL_PRVOPC,
+/// FPE_INTDIV, TRAP_BRKPT...), si_trapno and si_addr, while kill(2), thr_kill(2)
+/// and sigqueue(2) use the SI_* codes (>= 0x10000, or SI_NOINFO).
 ///
-static int s2e_signal_from_trap(int sig, const struct trapframe *tf) {
+/// If the siginfo was not captured (older kernel, or a path that skips
+/// postsig()), fall back to inspecting the trap frame: a system call entry
+/// only sets tf_err to 2 and keeps the tf_trapno/tf_addr of an earlier trap,
+/// and an interrupt entry writes neither, so the frame is only trusted when
+/// the trap number matches the signal.
+///
+static int s2e_frame_from_trap(int sig, const struct trapframe *tf) {
     switch (sig) {
         case SIGSEGV:
         case SIGBUS:
@@ -222,6 +228,15 @@ static int s2e_signal_from_trap(int sig, const struct trapframe *tf) {
     }
 }
 
+static int s2e_signal_from_trap(struct thread *td, int sig, const struct trapframe *tf) {
+    const siginfo_t *si = &td->td_si;
+
+    if (si->si_signo == sig) {
+        return si->si_code > 0 && si->si_code < SI_NOINFO + 0x10000;
+    }
+    return s2e_frame_from_trap(sig, tf);
+}
+
 static void s2e_process_exit(void *arg, struct proc *p) {
     struct S2E_FREEBSDMON_COMMAND cmd;
     struct trapframe *tf = curthread->td_frame;
@@ -229,19 +244,24 @@ static void s2e_process_exit(void *arg, struct proc *p) {
 
     (void) arg;
 
-    if (sig != 0 && !s2e_signal_from_trap(sig, tf)) {
+    if (sig != 0 && !s2e_signal_from_trap(curthread, sig, tf)) {
         // Killed by a signal that was not a hardware trap: only the exit is reported
     } else if (sig == SIGSEGV || sig == SIGBUS) {
+        const siginfo_t *si = &curthread->td_si;
+        int trapno = si->si_signo == sig ? si->si_trapno : tf->tf_trapno;
+
         s2e_init_command(&cmd, FREEBSD_SEGFAULT);
         cmd.SegFault.pc = tf->tf_rip;
         // The fault address is only known for page faults
-        cmd.SegFault.address = tf->tf_trapno == T_PAGEFLT ? tf->tf_addr : 0;
+        cmd.SegFault.address = si->si_signo == sig ? (uintptr_t) si->si_addr : (trapno == T_PAGEFLT ? tf->tf_addr : 0);
         cmd.SegFault.fault = tf->tf_err;
         s2e_send(&cmd);
     } else if (sig == SIGILL || sig == SIGFPE || sig == SIGTRAP) {
+        const siginfo_t *si = &curthread->td_si;
+
         s2e_init_command(&cmd, FREEBSD_TRAP);
         cmd.Trap.pc = tf->tf_rip;
-        cmd.Trap.trapnr = tf->tf_trapno;
+        cmd.Trap.trapnr = si->si_signo == sig ? si->si_trapno : tf->tf_trapno;
         cmd.Trap.signr = sig;
         cmd.Trap.error_code = tf->tf_err;
         s2e_send(&cmd);
