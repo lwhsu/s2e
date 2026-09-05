@@ -35,17 +35,14 @@ echo "Patching s2e-config.lua..."
 
 cat << LUA >> $PROJECT_DIR/s2e-config.lua
 
--- The AHCI controller of the s2ekernel-ahci image: ABAR (bar[24]) 0xfebf1000-0xfebf1fff, legacy I/O bar[20] 0xc040-0xc05f
-pluginsConfig.SymbolicHardware = {
-    ahci = {
-        ports = {
-            {0xc040, 0xc05f},
-        },
-        mmio = {
-            {0xfebf1000, 0xfebf1fff},
-        },
-    },
-}
+-- The AHCI controller of the s2ekernel-ahci image: ABAR (bar[24]) 0xfebf1000-0xfebf1fff, legacy I/O
+-- bar[20] 0xc040-0xc05f. The registers are kept concrete on purpose: with symbolic MMIO the port
+-- polling loops of the attach path fork faster than the searcher reaches the fault injection
+-- branches (46 forks and no injection in 20 minutes), and the point of this test is that the
+-- bus_dma hooks fire on a real driver. Uncomment to add symbolic hardware on top.
+-- pluginsConfig.SymbolicHardware = {
+--     ahci = { ports = { {0xc040, 0xc05f} }, mmio = { {0xfebf1000, 0xfebf1fff} } },
+-- }
 
 -- Bound the exploration of the attach path (register polling loops fork at the same pc forever)
 pluginsConfig.ForkLimiter.maxForkCount = 5

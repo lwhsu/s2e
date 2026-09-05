@@ -10,23 +10,27 @@ timeout --foreground --kill-after=5m 20m s2e run -n {{ project_name }} || [ $? -
 
 echo === Checking that the driver was loaded and attached under S2E
 grep -q "kld load freebsd64-ahci.ko" $S2E_LAST/debug.txt
-grep -q "iommuread_0xfebf1" $S2E_LAST/debug.txt
+grep -q "ahci0: <Intel ICH9 AHCI SATA controller>" "$S2E_LAST/../serial.txt"
 
-echo === Checking that the attach path forked on the device registers
+echo === Checking that the attach path forked at the fault injection sites
+# The registers are concrete (see fix-config.sh): every fork is a fault injection site
 COUNT=$(grep -c "Forking state" $S2E_LAST/debug.txt)
-if [ $COUNT -lt 10 ]; then
+if [ $COUNT -lt 8 ]; then
     echo Too few forks: $COUNT
     exit 1
 fi
 
-echo === Checking that the bus_dma hooks were reached by the driver
-# ahci allocates the command lists and FIS area of every channel with bus_dmamem_alloc()/bus_dmamap_create() (inline
-# wrappers around the bus_dma_impl methods) during attach
-grep -q "FaultInjInvokeOrig_bus_dmamem_alloc\|FaultInjInvokeOrig_bus_dmamap_create" $S2E_LAST/debug.txt
-grep -q "injecting fault into bus_dma" $S2E_LAST/debug.txt
+echo === Checking that the bus_dma hooks were reached and the faults injected
+# ahci allocates the command lists and FIS area of every channel with bus_dmamem_alloc()/bus_dmamap_create()
+# (inline wrappers around the bus_dma_impl methods) during attach
+grep -q "FaultInjInvokeOrig_bus_dmamem_alloc" $S2E_LAST/debug.txt
+grep -q "FaultInjInvokeOrig_bus_dmamap_create" $S2E_LAST/debug.txt
+grep -q "injecting fault into bus_dmamem_alloc" $S2E_LAST/debug.txt
+grep -q "injecting fault into bus_dmamap_create" $S2E_LAST/debug.txt
 
 # check_coverage reads the first "lines..." line of cov.log, i.e. the driver's
 check_coverage {{project_name}} 5
 
+# With concrete registers every fork happens in the fault injection hooks of s2e.ko
 s2e forkprofile {{ project_name }} > $S2E_LAST/forkprofile.txt
-grep -q -i "ahci" $S2E_LAST/forkprofile.txt
+grep -q "s2e.ko" $S2E_LAST/forkprofile.txt
