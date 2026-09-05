@@ -1,0 +1,11 @@
+test:
+    description: "FreeBSD ahci driver attach under symbolic hardware: the bus_dma fault injection hooks on a real driver"
+
+    targets:
+        - freebsd64-ahci.ko
+
+    target-images:
+        - freebsd-15.1-x86_64-s2ekernel-ahci
+
+    build-options:
+        post-project-generation-script: fix-config.sh
